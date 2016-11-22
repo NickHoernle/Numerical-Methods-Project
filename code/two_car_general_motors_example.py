@@ -22,6 +22,16 @@ def leadcar_problem1(t):
 		return 0.0
 
 def main():
+	'''
+	Very basic example using General motor's car following model with 2 cars.
+	The lead car has the following acceleration:
+		- a=0 for first two seconds
+		- a=1 for next two seconds
+		- a=-1 for next two seconds
+	Plots of position, velocity, and acceleration are created and stored in
+	the figures directory.
+	'''
+
 	# set number of cars
 	n = 2
 	# set initial pos, velocity, accel
