@@ -63,7 +63,3 @@ fig, ax = plt.subplots(1,1, figsize=(8,8))
 for car in range(50):
 	ax.plot(ts, y_s[:,car])
 plt.show()
-
-
-
-
