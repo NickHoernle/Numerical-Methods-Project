@@ -1,0 +1,8 @@
+TODO
+
+1. Finish HDM
+2. Extend to look-ahead at 5 cars
+3. Test with different percentages of intelligent / human cars
+4. Optimize human parameters for individual driver — cover most distance (ignoring cost to others behind)
+5. Optimize human parameters for greater good (maximum throughput)
+6. Chapter 14 - stuff
