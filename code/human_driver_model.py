@@ -1,5 +1,4 @@
-#https://en.wikipedia.org/wiki/Intelligent_driver_model
-
+# Human Driver Model
 
 import numpy as np
 import scipy as sp
@@ -11,15 +10,15 @@ import math
 # import scipy.stats.norm
 import pdb
 
-v0 = 30. 				# initial velocity of cars
-T = 1.5 				# Safe following time
-Tr = 0.6 				# Reaction time
-na = 5 					# number of look ahead cars
-Vs = .1 				# Variation coefficient of gap estimation error
-omega_r = 0.01	# estimation error for the inverse TTC
-omega_a = 0.1 	# magnitude of acceleration noise
-tau_tilde = 20	# persistence time of estimation errors
-tau_a_tilde =  1 # persistence time of acceleration noise
+v0 = 30. 											# initial velocity of cars
+T = 1.5 											# Safe following time
+Tr = 0.6 											# Reaction time
+na = 5 												# number of look ahead cars
+Vs = .1 											# Variation coefficient of gap estimation error
+omega_r = 0.01								# estimation error for the inverse TTC
+omega_a = 0.1 								# magnitude of acceleration noise
+tau_tilde = 20								# persistence time of estimation errors
+tau_a_tilde =  1 							# persistence time of acceleration noise
 v = np.ones(50) * 30					# Initial velocities
 x_vec = np.linspace(0,490,50)	# Initial positions
 a = 1.
@@ -60,7 +59,6 @@ w_s = weiner_process(t_step, tau_tilde)
 w_l = weiner_process(t_step, tau_a_tilde)
 
 def x_v_dash(x_v, t):
-	# pdb.set_trace()
 	x_v = x_v.reshape(2,-2)
 	v = x_v[1,:]
 	x_vec = x_v[0,:]
@@ -77,6 +75,7 @@ def x_v_dash(x_v, t):
 			delta_v[i] =  v[i] - v[i+1]
 			s[i] =  x_vec[i] - x_vec[i+1]
 
+	# follow the HDM equation
 	index = math.floor(t/t_step) if math.floor(t/t_step) < t_steps else t_steps-1
 	s_est = s * np.exp(Vs * w_s[:, index])
 	v_est = v - s*omega_r*w_l[:, index]
