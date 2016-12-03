@@ -79,9 +79,18 @@ def x_v_dash(x_v, t):
 
 	index = math.floor(t/t_step) if math.floor(t/t_step) < t_steps else t_steps-1
 	s_est = s * np.exp(Vs * w_s[:, index])
-	v_est = v - s*omega_r*w_l[:, index]
+	v_est = v - s*omega_r*w_s[:, index]
+	# x_v = (intelligent_driver_model_1(v_est, v-v_est, s_est) + omega_a*w_l[:, index]).reshape(1,-1)[0]
 	x_v = intelligent_driver_model_1(v_est, v-v_est, s_est).reshape(1,-1)[0]
 	return x_v
+
+def runge_kutta_4(x_v_vec_k, x_v_dash, t_k, h):
+	k1=x_v_dash(x_v_vec_k,t_k)
+	k2=x_v_dash(x_v_vec_k+.5*h*k1,t_k+.5*h)
+	k3=x_v_dash(x_v_vec_k+.5*h*k2,t_k+.5*h)
+	k4=x_v_dash(x_v_vec_k+h*k3,t_k+h)
+	x_v_vec_k_next = x_v_vec_k + h/6. * (k1 + 2*k2 + 2*k3 + k4)
+	return x_v_vec_k_next
 
 x_v_vec = np.concatenate(([x_vec], [v]), axis=0).reshape(1,-1)[0]
 
@@ -92,7 +101,3 @@ fig, ax = plt.subplots(1,1, figsize=(8,8))
 for car in range(50):
 	ax.plot(ts, y_s[:,car])
 plt.show()
-
-
-
-
