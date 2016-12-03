@@ -26,7 +26,7 @@ b = 3.
 delta = 4.
 s0 = 2.
 end_of_track = 600
-t_steps = 1000
+t_steps = 10000
 n_cars = 50.
 t_start = 0.
 t_end = 500.
@@ -79,8 +79,14 @@ def x_v_dash(x_v, t):
 	index = math.floor(t/t_step) if math.floor(t/t_step) < t_steps else t_steps-1
 	s_est = s * np.exp(Vs * w_s[:, index])
 	v_est = v - s*omega_r*w_s[:, index]
-	# x_v = (intelligent_driver_model_1(v_est, v-v_est, s_est) + omega_a*w_l[:, index]).reshape(1,-1)[0]
-	x_v = intelligent_driver_model_1(v_est, v-v_est, s_est).reshape(1,-1)[0]
+	# pdb.set_trace()
+	# x_v = intelligent_driver_model_1(v_est, v-v_est, s_est).reshape(1,-1)[0]
+	# print "orig", x_v
+	x_v = (intelligent_driver_model_1(v_est, v-v_est, s_est)).reshape(1,-1)[0] + \
+	np.concatenate((np.zeros(n_cars), omega_a*w_l[:, index]), axis=0)
+	# print "test", x_v_test
+	# print "diff", x_v - x_v_test
+	# pdb.set_trace()
 	return x_v
 
 def runge_kutta_4(x_v_vec_k, x_v_dash, t_k, h):
@@ -93,7 +99,13 @@ def runge_kutta_4(x_v_vec_k, x_v_dash, t_k, h):
 
 x_v_vec = np.concatenate(([x_vec], [v]), axis=0).reshape(1,-1)[0]
 
-y_s = sp.integrate.odeint(x_v_dash, y0=x_v_vec, t=ts)
+y_s=[]
+y_s.append(x_v_vec)
+for i in range(1,len(ts)):
+	y_s.append(runge_kutta_4(y_s[-1], x_v_dash, ts[i], ts[i]-ts[i-1]))
+
+# y_s = sp.integrate.odeint(x_v_dash, y0=x_v_vec, t=ts)
+y_s = np.array(y_s)
 
 fig, ax = plt.subplots(1,1, figsize=(8,8))
 
