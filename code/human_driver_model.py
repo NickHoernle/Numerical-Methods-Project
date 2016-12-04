@@ -10,11 +10,12 @@ import math
 # import scipy.stats.norm
 import matplotlib.animation as animation
 import pdb
-from intelligent_driver_model import a_mic, s_star, x_dash, x
+from intelligent_driver_model import a_IDM, s_star, x_dash, x
 
 
 
-def wiener_process(dt, tau_tilde, params):
+def wiener_process(tau_tilde, params):
+	dt = params['t_step']
 	n_cars = params['n_cars']
 	t_steps = params['t_steps']
 	w0 = np.random.randn(n_cars)
@@ -48,15 +49,15 @@ def x_v_dash(x_v, t,params):
 	index = math.floor(t/t_step) if math.floor(t/t_step) < t_steps else t_steps-1
 	s_est = s * np.exp(Vs * w_s[:, index])
 	# Compute estimates v^est
-	# Note that for vehicle i, v^est_i is vehicle i+1's estimate of 
-	# vehicle i's speed
-	v_est = np.roll(np.roll(v,1) - s*sigma_r*w_l[:, index],1)
+	# Note that for vehicle i, v^est_l[i] is vehicle i's estimate of 
+	# vehicle i-1's speed
+	v_l_est = np.roll(v,1) - s*sigma_r*w_l[:, index]
 	# Note: Car i follows car i-1
 	# Since this is a ring track, car 0 follows car n-1
 	# for vehicle i, delta_v_est = v[i] - v_est[i-1]
-	delta_v_est = v - np.roll(v_est,1)
+	delta_v_est = v - v_l_est
 	# Compute acceleration (with estimation error)
-	dvdt = a_mic(v,s_est,delta_v_est,params) + sigma_a*w_a[:, index]
+	dvdt = a_IDM(v,s_est,delta_v_est,params) + sigma_a*w_a[:, index]
 	x_v = np.concatenate((v,dvdt))
 	return x_v
 
@@ -74,23 +75,23 @@ if __name__ == '__main__':
 	params['v0'] = 20.0 # desired velocity (in m/s) of vehicles in free traffic
 	params['init_v'] = 5.0 # initial velocity
 	params['T'] = 1.5 # Safe following time
-	params['a'] = 1.0 # Maximum acceleration (in m/s^2)
+	params['a'] = 2.0 # Maximum acceleration (in m/s^2)
 	params['b'] = 3.0 # Comfortable deceleration (in m/s^2)
 	params['delta'] = 4.0 # Acceleration exponent
-	params['s0'] = 3.0 # minimum gap (in m)
+	params['s0'] = 2.0 # minimum gap (in m)
 	params['end_of_track'] = 600 # in m
-	params['t_steps'] = 1000 # number of timesteps
+	params['t_steps'] = 5000 # number of timesteps
 	params['t_start'] = 0.0
 	params['n_cars'] = 50 # number of vehicles
 	params['total_time'] = 500 # total time (in s)
 	params['t_step'] = (params['total_time'] - params['t_start'])/params['t_steps']
 	params['Tr'] = 0.6 # Reaction time
 	params['na'] = 5 	# number of look ahead cars
-	params['Vs'] = .1 # Variation coefficient of gap estimation error
+	params['Vs'] = 0.1 # Variation coefficient of gap estimation error
 	params['sigma_r'] = 0.01 # estimation error for the inverse TTC
 	params['sigma_a']= 0.1  # magnitude of acceleration noise
-	params['tau_tilde'] = 20 # persistence time of estimation errors (in s)
-	params['tau_a_tilde'] =  1 # persistence time of acceleration noise (in s)
+	params['tau_tilde'] = 20.0 # persistence time of estimation errors (in s)
+	params['tau_a_tilde'] =  1.0 # persistence time of acceleration noise (in s)
 	v0 = params['v0']
 	init_v = params['init_v']
 	T = params['T']
@@ -111,9 +112,9 @@ if __name__ == '__main__':
 	tau_a_tilde = params['tau_a_tilde']
 	t_start = params['t_start']
 	t_step = params['t_step']
-	params['w_s'] = wiener_process(t_step, tau_tilde, params)
-	params['w_l'] = wiener_process(t_step, tau_tilde, params)
-	params['w_a'] = wiener_process(t_step, tau_a_tilde, params)
+	params['w_s'] = wiener_process(tau_tilde, params)
+	params['w_l'] = wiener_process(tau_tilde, params)
+	params['w_a'] = wiener_process(tau_a_tilde, params)
 
 
 	v = np.ones(n_cars) * v0 # Initial velocities (in m/s)
@@ -125,13 +126,13 @@ if __name__ == '__main__':
 
 
 	# Runge Kutta isn't quite working, but I haven't looked into why
-	#y_s=[]
-	#y_s.append(x_v_vec)
-	#for i in range(1,len(ts)):
-	#	y_s.append(runge_kutta_4(y_s[-1], x_v_dash, ts[i], ts[i]-ts[i-1],params))
-
-	y_s = sp.integrate.odeint(x_v_dash, y0=x_v_vec, t=ts,args=(params,))
+	y_s=[]
+	y_s.append(x_v_vec)
+	for i in range(1,len(ts)):
+		y_s.append(runge_kutta_4(y_s[-1], x_v_dash, ts[i], ts[i]-ts[i-1],params))
 	y_s = np.array(y_s)
+	#y_s = sp.integrate.odeint(x_v_dash, y0=x_v_vec, t=ts,args=(params,))
+
 	# Plot position and velocity of each car 
 	fig, axes = plt.subplots(1,2, figsize=(16,8))
 	# Plot positions over time

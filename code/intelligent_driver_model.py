@@ -120,16 +120,13 @@ def x_v_dash(x_v, t, params):
 	#params['y_s'].append(x_v)
 	return x_v
 
-def runge_kutta_4(y_s, x_v_dash, t_k, h, params):
-	x_v_vec_k = y_s[-1]
+def runge_kutta_4(x_v_vec_k, x_v_dash, t_k, h, params):
 	k1=x_v_dash(x_v_vec_k,t_k, params)
 	k2=x_v_dash(x_v_vec_k+.5*h*k1,t_k+.5*h, params)
 	k3=x_v_dash(x_v_vec_k+.5*h*k2,t_k+.5*h, params)
 	k4=x_v_dash(x_v_vec_k+h*k3,t_k+h, params)
 	x_v_vec_k_next = x_v_vec_k + h/6. * (k1 + 2*k2 + 2*k3 + k4)
 	return x_v_vec_k_next
-
-
 
 if __name__ == '__main__':
 	## Parameters ##
@@ -146,7 +143,8 @@ if __name__ == '__main__':
 	params['n_cars'] 				= 50 # number of vehicles
 	params['total_time'] 		= 500 # total time (in s)
 	params['c'] 						= 0.99 # correction factor
-	params['delta_t'] 				= (0-params['total_time'])/float(params['t_steps'])
+	params['t_start'] = 0.0
+	params['t_step'] = (params['total_time']-params['t_start'])/float(params['t_steps'])
 	v0 = params['v0']
 	init_v = params['init_v']
 	T = params['T']
@@ -163,7 +161,6 @@ if __name__ == '__main__':
 	# 1 == IIDM
 	# 2 == ACC
 	for model in xrange(3):
-
 		params['IDM_model_num'] = model
 
 		# Assign initial velocities (30m/s)
@@ -178,12 +175,12 @@ if __name__ == '__main__':
 		ts = np.linspace(0,total_time,t_steps)
 		# Solve System of ODEs
 		#params['y_s'] = [x_v_vec]
-		y_s = sp.integrate.odeint(x_v_dash, y0=x_v_vec, t=ts, args=(params,))
-		# y_s=[]
-		# y_s.append(x_v_vec)
-		# for i in range(1,len(ts)):
-		# 	y_s.append(runge_kutta_4(y_s[-1], x_v_dash, ts[i], ts[i]-ts[i-1], params))
-
+		#y_s = sp.integrate.odeint(x_v_dash, y0=x_v_vec, t=ts, args=(params,))
+		y_s=[]
+		y_s.append(x_v_vec)
+		for i in range(1,len(ts)):
+			y_s.append(runge_kutta_4(y_s[-1], x_v_dash, ts[i], ts[i]-ts[i-1], params))
+		y_s = np.array(y_s)
 
 		# Plot position and velocity of each car 
 		fig, axes = plt.subplots(1,2, figsize=(16,8))
