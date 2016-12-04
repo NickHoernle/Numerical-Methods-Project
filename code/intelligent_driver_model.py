@@ -52,13 +52,13 @@ def a_IIDM(v,s,delta_v,params):
 	a_free = compute_a_free(v,s,delta_v,params)
 	dvdt = np.zeros(v.shape)
 	# v <= v0 and z >= 1
-	dvdt += v_mask * z_mask * (a*(1-z**2)) 
+	dvdt += v_mask * z_mask * (a*(1-z**2))
 	# v <= v0 and z < 1
 	dvdt += v_mask * (1-z_mask) * (a_free*(1-z**(2*a/a_free)))
 	# v > v0 and z >= 1
-	dvdt += (1-v_mask) * z_mask * (a_free+a*(1-z**2)) 
+	dvdt += (1-v_mask) * z_mask * (a_free+a*(1-z**2))
 	# v > v0 and z < 1
-	dvdt += (1-v_mask) * z_mask * (a_free) 
+	dvdt += (1-v_mask) * z_mask * (a_free)
 	return dvdt
 
 def a_CAH(s, v, vl, v_dash_l,params):
@@ -95,7 +95,7 @@ def x_v_dash(x_v, t, params):
 	vl = np.roll(v,1)
 	# Compute difference in speeds between current car and leading car
 	delta_v = v - vl
-	
+
 	# Nick: This version is correct.
 	# Compute gap
 	# for vehicle i, s = x_vec[i-1] - x_vec[i]
@@ -120,6 +120,16 @@ def x_v_dash(x_v, t, params):
 	#params['y_s'].append(x_v)
 	return x_v
 
+def runge_kutta_5(x_v_vec_k, x_v_dash, t_k, h, params):
+	k1 = x_v_dash(x_v_vec_k,t_k, params)
+	k2 = x_v_dash(x_v_vec_k + 1./4*h*k1,t_k+1./4*h, params)
+	k3 = x_v_dash(x_v_vec_k + 3./32*h*k1 + 9./32*h*k2,t_k+3./8*h, params)
+	k4 = x_v_dash(x_v_vec_k + 1932./2197*h*k1 -7200./2197*h*k2 + 7296./2197*h*k3,t_k+12./13*h, params)
+	k5 = x_v_dash(x_v_vec_k + 439./216*h*k1 -8.*h*k2 + 3680./513*h*k3 - 845./4104*h*k4,t_k*h, params)
+	k6 = x_v_dash(x_v_vec_k - 8./27*h*k1 + 2.*h*k2 -3544./2565*h*k3 + 1859./4104*h*k4 - 11./40*h*k5,t_k*1./2*h, params)
+	x_v_vec_k_next = x_v_vec_k + h * (15./135*k1 + 6656./12825*k3 + 28561./56430*k4 - 9./50*k5 + 2./55*k6)
+	return x_v_vec_k_next
+
 def runge_kutta_4(x_v_vec_k, x_v_dash, t_k, h, params):
 	k1=x_v_dash(x_v_vec_k,t_k, params)
 	k2=x_v_dash(x_v_vec_k+.5*h*k1,t_k+.5*h, params)
@@ -127,6 +137,25 @@ def runge_kutta_4(x_v_vec_k, x_v_dash, t_k, h, params):
 	k4=x_v_dash(x_v_vec_k+h*k3,t_k+h, params)
 	x_v_vec_k_next = x_v_vec_k + h/6. * (k1 + 2*k2 + 2*k3 + k4)
 	return x_v_vec_k_next
+
+def runge_kutta_3(x_v_vec_k, x_v_dash, t_k, h, params):
+	k1=x_v_dash(x_v_vec_k,t_k,params)
+	k2=x_v_dash(x_v_vec_k+.5*h*k1, t_k+.5*h, params)
+	k3=x_v_dash(x_v_vec_k-h*k1+2*h*k2,t_k+h, params)
+	x_v_vec_k_next = x_v_vec_k + h/6. * (k1 + 4*k2 + k3)
+	return x_v_vec_k_next
+
+def heuns_method(x_v_vec_k, x_v_dash, t_k, h, params):
+	k1=x_v_dash(x_v_vec_k,t_k,params)
+	k2=x_v_dash(x_v_vec_k+h*k1, t_k*h, params)
+	x_v_vec_k_next = x_v_vec_k + h/2. * (k1 + k2)
+	return x_v_vec_k_next
+
+def fwd_euler(x_v_vec_k, x_v_dash, t_k, h, params):
+	k1=x_v_dash(x_v_vec_k,t_k,params)
+	x_v_vec_k_next = x_v_vec_k + h * (k1)
+	return x_v_vec_k_next
+
 
 if __name__ == '__main__':
 	## Parameters ##
@@ -179,10 +208,11 @@ if __name__ == '__main__':
 		y_s=[]
 		y_s.append(x_v_vec)
 		for i in range(1,len(ts)):
-			y_s.append(runge_kutta_4(y_s[-1], x_v_dash, ts[i], ts[i]-ts[i-1], params))
+			y_s.append(runge_kutta_3(y_s[-1], x_v_dash, ts[i], ts[i]-ts[i-1], params))
+			# pdb.set_trace()
 		y_s = np.array(y_s)
 
-		# Plot position and velocity of each car 
+		# Plot position and velocity of each car
 		fig, axes = plt.subplots(1,2, figsize=(16,8))
 		# Plot positions over time
 		for car in xrange(n_cars):
