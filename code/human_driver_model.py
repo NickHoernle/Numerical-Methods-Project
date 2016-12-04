@@ -12,7 +12,12 @@ import matplotlib.animation as animation
 import pdb
 from intelligent_driver_model import a_IDM, s_star, x_dash, x
 
-
+def interp(u,i):
+	j = int(Tr/t_step)
+	r = Tr/t_step - j
+	u_interp = r*u[i-j-1] + (1-r)*u[i-j]
+	# pdb.set_trace()
+	return u_interp
 
 def wiener_process(tau_tilde, params):
 	dt = params['t_step']
@@ -49,7 +54,7 @@ def x_v_dash(x_v, t,params):
 	index = math.floor(t/t_step) if math.floor(t/t_step) < t_steps else t_steps-1
 	s_est = s * np.exp(Vs * w_s[:, index])
 	# Compute estimates v^est
-	# Note that for vehicle i, v^est_l[i] is vehicle i's estimate of 
+	# Note that for vehicle i, v^est_l[i] is vehicle i's estimate of
 	# vehicle i-1's speed
 	v_l_est = np.roll(v,1) - s*sigma_r*w_l[:, index]
 	# Note: Car i follows car i-1
@@ -115,6 +120,7 @@ if __name__ == '__main__':
 	params['w_s'] = wiener_process(tau_tilde, params)
 	params['w_l'] = wiener_process(tau_tilde, params)
 	params['w_a'] = wiener_process(tau_a_tilde, params)
+	n_leading = 1
 
 
 	v = np.ones(n_cars) * v0 # Initial velocities (in m/s)
@@ -124,16 +130,52 @@ if __name__ == '__main__':
 	ts = np.linspace(t_start,total_time,t_steps) # time steps
 	x_v_vec = np.concatenate(([x_vec], [v]), axis=0).reshape(1,-1)[0]
 
+	index = math.floor(t/t_step) if math.floor(t/t_step) < t_steps else t_steps-1
+	s_est = s * np.exp(Vs * w_s[:, index])
+	v_est = v - s*omega_r*w_s[:, index]
+
+	# pdb.set_trace()
+	# x_v = intelligent_driver_model_1(v_est, v-v_est, s_est).reshape(1,-1)[0]
+	# print "orig", x_v
+
+	x_v = (intelligent_driver_model_1(v_est, v-v_est, s_est)).reshape(1,-1)[0] + \
+	np.concatenate((np.zeros(n_cars), omega_a*w_l[:, index]), axis=0)
+
+	if len(past_vs) > int(Tr/t_step)+1:
+	# 	v_prog = interp(past_v_s,0) + Tr * interp(past_a_s,0)
+		v_l_prog = interp(past_vs,0)
+		s_prog = s_est - Tr * interp(past_delta_vs,0)
+		# pdb.set_trace()
+		c_idm = np.sum([1./j**2 for j in range(1, n_leading+1)])**-1
+		int_term = 0
+		s_prog_i = s_prog
+		# pdb.set_trace()
+		v_prog_i = np.concatenate((v_l_prog[1:], [v_l_prog[0]]), axis=0)
+		int_term += human_driver_model_int(s_prog, v_l_prog, v_l_prog)
+
+		for i in range(1,n_leading):
+			s_prog_i += np.concatenate((s_prog[i:], s_prog[0:i]), axis=0)
+			v_prog_i = np.concatenate((v_l_prog[i:], v_l_prog[0:i]), axis=0)
+
+			int_term += human_driver_model_int(v_l_prog, v_l_prog-v_prog_i, s_prog)
+		# pdb.set_trace()
+		print "orig", x_v
+		pdb.set_trace()
+		x_v = human_driver_model_free(v_est, v-v_est, s_est).reshape(1,-1)[0] + \
+		int_term.reshape(1,-1)[0]
+		print "est", x_v
 
 	# Runge Kutta isn't quite working, but I haven't looked into why
 	y_s=[]
+	v_s=[]
 	y_s.append(x_v_vec)
 	for i in range(1,len(ts)):
 		y_s.append(runge_kutta_4(y_s[-1], x_v_dash, ts[i], ts[i]-ts[i-1],params))
+		v_s.append(y_s[-1][n_cars:])
 	y_s = np.array(y_s)
 	#y_s = sp.integrate.odeint(x_v_dash, y0=x_v_vec, t=ts,args=(params,))
 
-	# Plot position and velocity of each car 
+	# Plot position and velocity of each car
 	fig, axes = plt.subplots(1,2, figsize=(16,8))
 	# Plot positions over time
 	for car in xrange(n_cars):
