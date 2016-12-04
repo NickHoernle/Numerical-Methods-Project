@@ -26,9 +26,8 @@ def wiener_process(dt, tau_tilde, params):
 
 	return w
 
-
-
 def x_v_dash(x_v, t,params):
+	# Compute derivatives of position and velocity
 	t_step = params['t_step']
 	t_steps = params['t_steps']
 	sigma_r = params['sigma_r']
@@ -45,10 +44,6 @@ def x_v_dash(x_v, t,params):
 	s = np.roll(x_vec,1) - x_vec
 	# put s for car zero within the bounds of the track
 	s[0] += end_of_track
-	# print "velocity"
-	# print v
-	# print "position"
-	# print x_vec
 	# follow the HDM equation
 	index = math.floor(t/t_step) if math.floor(t/t_step) < t_steps else t_steps-1
 	s_est = s * np.exp(Vs * w_s[:, index])
@@ -128,6 +123,8 @@ if __name__ == '__main__':
 	ts = np.linspace(t_start,total_time,t_steps) # time steps
 	x_v_vec = np.concatenate(([x_vec], [v]), axis=0).reshape(1,-1)[0]
 
+
+	# Runge Kutta isn't quite working, but I haven't looked into why
 	#y_s=[]
 	#y_s.append(x_v_vec)
 	#for i in range(1,len(ts)):
