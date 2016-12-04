@@ -15,19 +15,24 @@ def x_dash(t, v):
 def x(x0, v, t):
 	return x0 + v*t
 
-def s_star(v, delta_v):
+def s_star(v, delta_v,params):
+	s0 = params['s0']
+	T = params['T']
+	a = params['a']
+	b = params['b']
 	# Compute s^*
 	zeros = np.zeros(len(delta_v))
 	# take max of 0 and each elt of v*T + v*delta_v/(2*np.sqrt(a*b))
 	return s0 + np.amax(np.vstack((zeros,v*T + v*delta_v/(2*np.sqrt(a*b)))),axis=0)
 
-def intelligent_driver_model_1(v, a, v0, delta, delta_v, s):
-	# Compute derivatives of position and velocity
-	dxdt = v
-	dvdt = a*(1-(v/v0)**delta - (s_star(v, delta_v)/s)**2)
-	return np.concatenate(([dxdt], [dvdt]), axis=0)
+def a_mic(v,s,delta_v,params):
+	a = params['a']
+	delta = params['delta']
+	v0 = params['v0']
+	# Compute dv/dt (i.e. accelerations)
+	return a*(1-(v/v0)**delta - (s_star(v, delta_v, params)/s)**2)
 
-def x_v_dash(x_v, t):
+def x_v_dash(x_v, t,params):
 	# Compute derivative of position and velocity
 	x_v = x_v.reshape(2,-2)
 	# get velocities
@@ -44,24 +49,38 @@ def x_v_dash(x_v, t):
 	# put s for car zero within the bounds of the track
 	s[0] += end_of_track
 	# Compute derivatives of position and velocity
-	x_v = intelligent_driver_model_1(v, a, v0, delta, delta_v, s).reshape(1,-1)[0]
+	dvdt = a_mic(v,s,delta_v,params)
+	x_v = np.concatenate((v,dvdt))
 	return x_v
 
 if __name__ == '__main__':
 	## Parameters ##
-	v0 = 20 # desired velocity (in m/s) of vehicles in free traffic (also initial v)
-	T = 1.5 # Safe following time
-	a = 1.0 # Maximum acceleration (in m/s^2)
-	b = 3.0 # Comfortable deceleration (in m/s^2)
-	delta = 4.0 # Acceleration exponent
-	s0 = 2.0 # minimum gap (in m)
-	end_of_track = 600 # in m
-	t_steps = 1000 # number of timesteps
-	n_cars = 50 # number of vehicles
-	total_time = 500 # total time (in s)
+	params = dict()
+	params['v0'] = 20.0 # desired velocity (in m/s) of vehicles in free traffic
+	params['init_v'] = 5.0 # initial velocity
+	params['T'] = 1.5 # Safe following time
+	params['a'] = 1.0 # Maximum acceleration (in m/s^2)
+	params['b'] = 3.0 # Comfortable deceleration (in m/s^2)
+	params['delta'] = 4.0 # Acceleration exponent
+	params['s0'] = 2.0 # minimum gap (in m)
+	params['end_of_track'] = 600 # in m
+	params['t_steps'] = 1000 # number of timesteps
+	params['n_cars'] = 50 # number of vehicles
+	params['total_time'] = 500 # total time (in s)
+	v0 = params['v0']
+	init_v = params['init_v']
+	T = params['T']
+	a = params['a']
+	b = params['b']
+	delta = params['delta']
+	s0 = params['s0']
+	end_of_track = params['end_of_track']
+	t_steps = params['t_steps']
+	n_cars = params['n_cars']
+	total_time = params['total_time']
 
 	# Assign initial velocities (30m/s)
-	v = np.ones(n_cars) * 5
+	v = np.ones(n_cars) * init_v
 	# Assign initial positions
 	x_vec = np.linspace(0,end_of_track-end_of_track/5,n_cars)
 	# reverse positions so that car 0 is leading
@@ -71,7 +90,7 @@ if __name__ == '__main__':
 	# time
 	ts = np.linspace(0,total_time,t_steps)
 	# Solve System of ODEs
-	y_s = sp.integrate.odeint(x_v_dash, y0=x_v_vec, t=ts)
+	y_s = sp.integrate.odeint(x_v_dash, y0=x_v_vec, t=ts,args=(params,))
 
 	# Plot position and velocity of each car 
 	fig, axes = plt.subplots(1,2, figsize=(16,8))
