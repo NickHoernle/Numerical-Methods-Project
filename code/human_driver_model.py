@@ -1,5 +1,4 @@
 # Human Driver Model
-
 import numpy as np
 import scipy as sp
 import scipy.integrate
@@ -11,12 +10,12 @@ import math
 import matplotlib.animation as animation
 import pdb
 from intelligent_driver_model import a_IDM, s_star, x_dash, x
+from collections import deque
 
-def interp(u,i):
-	j = int(Tr/t_step)
-	r = Tr/t_step - j
+def interp(u,i,params):
+	j = params['j']
+	r = params['r']
 	u_interp = r*u[i-j-1] + (1-r)*u[i-j]
-	# pdb.set_trace()
 	return u_interp
 
 def wiener_process(tau_tilde, params):
@@ -31,6 +30,18 @@ def wiener_process(tau_tilde, params):
 		w[:, time_step] = np.exp(-dt/tau_tilde)*w[:, time_step-1] + np.sqrt(2*dt/tau_tilde)*np.random.randn(n_cars)
 
 	return w
+
+def a_IDM_free(v,params):
+	# Compute a^IDM_free
+	a = params['a']
+	v0 = params['v0']
+	delta = params['delta']
+	return a*(1-(v/v0)**delta)
+
+def a_IDM_int(v,s,delta_v,params):
+	# Compute a^IDM_int
+	a = params['a']
+	return -a*(s_star(v, delta_v, params)/s)**2
 
 def x_v_dash(x_v, t,params):
 	# Compute derivatives of position and velocity
@@ -66,11 +77,92 @@ def x_v_dash(x_v, t,params):
 	x_v = np.concatenate((v,dvdt))
 	return x_v
 
-def runge_kutta_4(x_v_vec_k, x_v_dash, t_k, h,params):
-	k1=x_v_dash(x_v_vec_k,t_k,params)
-	k2=x_v_dash(x_v_vec_k+.5*h*k1,t_k+.5*h,params)
-	k3=x_v_dash(x_v_vec_k+.5*h*k2,t_k+.5*h,params)
-	k4=x_v_dash(x_v_vec_k+h*k3,t_k+h,params)
+def x_v_dash2(x_v, t,params,past):
+	# Compute derivatives of position and velocity
+	t_step = params['t_step']
+	t_steps = params['t_steps']
+	sigma_r = params['sigma_r']
+	sigma_a = params['sigma_a']
+	Vs = params['Vs']
+	w_s = params['w_s']
+	w_l = params['w_l']
+	w_a = params['w_a']
+	x_v = x_v.reshape(2,-2)
+	v = x_v[1,:]
+	x_vec = x_v[0,:]
+	n_a = params['n_a']
+	n_cars = params['n_cars']
+	Tr = params['Tr']
+	## Follow the leader ##
+	# Compute true gap
+	# for vehicle i, s = x_vec[i-1] - x_vec[i]
+	s = np.roll(x_vec,1) - x_vec
+	# put s for car zero within the bounds of the track
+	s[0] += end_of_track
+	# Compute index of this timestep
+	index = math.floor(t/t_step) if math.floor(t/t_step) < t_steps else t_steps-1
+	# compute estimate of gap
+	s_est = s * np.exp(Vs * w_s[:, index])
+	# Update history
+	#params['past_s_s'].append(s)
+	#params['past_s_est_s'].append(s_est)
+
+	# Compute estimates v^est
+	# Note that for vehicle i, v^est_l[i] is vehicle i's estimate of
+	# vehicle i-1's speed
+	v_l_est = np.roll(v,1) - s*sigma_r*w_l[:, index]
+
+	# update history
+	past['past_v_l_est_s'].append(v_l_est)
+	# Note: Car i follows car i-1
+	# Since this is a ring track, car 0 follows car n-1
+	# for vehicle i, delta_v_est = v[i] - v_est[i-1]
+	delta_v_est = v - v_l_est
+	past['past_delta_v_est_s'].append(delta_v_est)
+	# update history
+	#past_v_s = np.array(params['past_v_s'])
+	past_v_l_est_s = np.array(past['past_v_l_est_s'])
+	past_v_est_s = np.roll(past_v_l_est_s,-1)
+	past_dvdt = np.array(past['past_dvdt'])
+	past_delta_v_est_s = np.array(past['past_delta_v_est_s'])
+
+
+	# Compute acceleration
+	if past_v_est_s.shape[0] > int(Tr/t_step)+1:
+		# compute v^prog_l
+		v_l_prog = interp(past_v_l_est_s,0,params)
+		v_prog = interp(past_v_est_s,0,params) + Tr * interp(past_dvdt,0,params)
+		# compute s^prog
+		s_prog = s_est - Tr * interp(past_delta_v_est_s,0,params)
+		# compute c_idm
+		c_idm = np.sum([1./j**2 for j in range(1, n_a+1)])**-1
+		free_term = a_IDM_free(v, params)
+		dvdt = np.zeros(v.shape)
+		# calculate the acceleration of each vehicle one at a time
+		# As written in Eq 12.20 of the textbook
+		for alpha in xrange(n_cars):
+			free_term_alpha = free_term[alpha]
+			int_term = 0.0
+			for beta in xrange(alpha-n_a,alpha):
+				s_alpha_beta_prog = np.array([np.sum(s_prog[beta+1:alpha+1])])
+				v_alpha_prog = np.array([v_prog[alpha]])
+				v_beta_prog = np.array([v_prog[beta]])
+				int_term += a_IDM_int(v_alpha_prog,s_alpha_beta_prog,v_alpha_prog-v_beta_prog,params)
+			dvdt[alpha] = free_term_alpha + c_idm*int_term
+		print 'new'
+		print dvdt
+	else:
+		# Compute acceleration (with estimation error)
+		dvdt = a_IDM(v,s_est,delta_v_est,params) + sigma_a*w_a[:, index]
+	x_v = np.concatenate((v,dvdt))
+	past['past_dvdt'].append(dvdt)
+	return x_v
+
+def runge_kutta_4(x_v_vec_k, x_v_dash, t_k, h,params,past):
+	k1=x_v_dash(x_v_vec_k,t_k,params,past)
+	k2=x_v_dash(x_v_vec_k+.5*h*k1,t_k+.5*h,params,past)
+	k3=x_v_dash(x_v_vec_k+.5*h*k2,t_k+.5*h,params,past)
+	k4=x_v_dash(x_v_vec_k+h*k3,t_k+h,params,past)
 	x_v_vec_k_next = x_v_vec_k + h/6. * (k1 + 2*k2 + 2*k3 + k4)
 	return x_v_vec_k_next
 
@@ -120,8 +212,17 @@ if __name__ == '__main__':
 	params['w_s'] = wiener_process(tau_tilde, params)
 	params['w_l'] = wiener_process(tau_tilde, params)
 	params['w_a'] = wiener_process(tau_a_tilde, params)
-	n_leading = 1
+	params['j'] = int(Tr/t_step) # number of time steps in reaction time
+	params['r'] = Tr/t_step - params['j'] # fractional part of Tr/t_step
+	params['n_a'] = 5 # number of cars ahead that the driver is aware of
+	#params['past_v_s'] = []
+	past = dict()
+	past['past_v_l_est_s'] = deque(maxlen=params['j']+1)
+	#params['past_s_s'] = []
+	#params['past_s_est_s'] = []
+	past['past_delta_v_est_s'] = deque(maxlen=params['j']+1)
 
+	past['past_dvdt'] = deque(maxlen=params['j']+1)
 
 	v = np.ones(n_cars) * v0 # Initial velocities (in m/s)
 	x_vec = np.linspace(0,end_of_track-end_of_track/5,n_cars)	# Initial positions
@@ -129,49 +230,13 @@ if __name__ == '__main__':
 	x_vec = x_vec[::-1]
 	ts = np.linspace(t_start,total_time,t_steps) # time steps
 	x_v_vec = np.concatenate(([x_vec], [v]), axis=0).reshape(1,-1)[0]
-
-	index = math.floor(t/t_step) if math.floor(t/t_step) < t_steps else t_steps-1
-	s_est = s * np.exp(Vs * w_s[:, index])
-	v_est = v - s*omega_r*w_s[:, index]
-
-	# pdb.set_trace()
-	# x_v = intelligent_driver_model_1(v_est, v-v_est, s_est).reshape(1,-1)[0]
-	# print "orig", x_v
-
-	x_v = (intelligent_driver_model_1(v_est, v-v_est, s_est)).reshape(1,-1)[0] + \
-	np.concatenate((np.zeros(n_cars), omega_a*w_l[:, index]), axis=0)
-
-	if len(past_vs) > int(Tr/t_step)+1:
-	# 	v_prog = interp(past_v_s,0) + Tr * interp(past_a_s,0)
-		v_l_prog = interp(past_vs,0)
-		s_prog = s_est - Tr * interp(past_delta_vs,0)
-		# pdb.set_trace()
-		c_idm = np.sum([1./j**2 for j in range(1, n_leading+1)])**-1
-		int_term = 0
-		s_prog_i = s_prog
-		# pdb.set_trace()
-		v_prog_i = np.concatenate((v_l_prog[1:], [v_l_prog[0]]), axis=0)
-		int_term += human_driver_model_int(s_prog, v_l_prog, v_l_prog)
-
-		for i in range(1,n_leading):
-			s_prog_i += np.concatenate((s_prog[i:], s_prog[0:i]), axis=0)
-			v_prog_i = np.concatenate((v_l_prog[i:], v_l_prog[0:i]), axis=0)
-
-			int_term += human_driver_model_int(v_l_prog, v_l_prog-v_prog_i, s_prog)
-		# pdb.set_trace()
-		print "orig", x_v
-		pdb.set_trace()
-		x_v = human_driver_model_free(v_est, v-v_est, s_est).reshape(1,-1)[0] + \
-		int_term.reshape(1,-1)[0]
-		print "est", x_v
-
 	# Runge Kutta isn't quite working, but I haven't looked into why
-	y_s=[]
-	v_s=[]
+	y_s = []
 	y_s.append(x_v_vec)
+	#params['past_v_s'].append(v)
 	for i in range(1,len(ts)):
-		y_s.append(runge_kutta_4(y_s[-1], x_v_dash, ts[i], ts[i]-ts[i-1],params))
-		v_s.append(y_s[-1][n_cars:])
+		y_s.append(runge_kutta_4(y_s[-1], x_v_dash2, ts[i], ts[i]-ts[i-1],params,past))
+		#params['past_v_s'].append(params['past_y_s'][-1][n_cars:])
 	y_s = np.array(y_s)
 	#y_s = sp.integrate.odeint(x_v_dash, y0=x_v_vec, t=ts,args=(params,))
 
