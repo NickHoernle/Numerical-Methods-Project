@@ -45,6 +45,7 @@ def compute_a_free(v,s,delta_v,params):
 def a_IIDM(v,s,delta_v,params):
 	# compute acceleration for IIDM model
 	a = params['a']
+	v0 = params['v0']
 	# compute z
 	z = s_star(v, delta_v, params)/s
 	v_mask = (v<=v0)
@@ -96,12 +97,11 @@ def x_v_dash(x_v, t, params):
 	# Compute difference in speeds between current car and leading car
 	delta_v = v - vl
 
-	# Nick: This version is correct.
 	# Compute gap
 	# for vehicle i, s = x_vec[i-1] - x_vec[i]
 	# put s for car zero within the bounds of the track
 	s = np.roll(x_vec,1) - x_vec
-	s[0] += end_of_track
+	s[0] += params['end_of_track']
 
 	# Compute acceleration
 	if params['IDM_model_num'] == 0:
@@ -136,6 +136,8 @@ def runge_kutta_4(x_v_vec_k, x_v_dash, t_k, h, params):
 	k3=x_v_dash(x_v_vec_k+.5*h*k2,t_k+.5*h, params)
 	k4=x_v_dash(x_v_vec_k+h*k3,t_k+h, params)
 	x_v_vec_k_next = x_v_vec_k + h/6. * (k1 + 2*k2 + 2*k3 + k4)
+	# store the derivative at each timestep
+	params['x_v_dash'].append(k1)
 	return x_v_vec_k_next
 
 def runge_kutta_3(x_v_vec_k, x_v_dash, t_k, h, params):
@@ -156,13 +158,34 @@ def fwd_euler(x_v_vec_k, x_v_dash, t_k, h, params):
 	x_v_vec_k_next = x_v_vec_k + h * (k1)
 	return x_v_vec_k_next
 
+def run_simulation(params):
+	v = np.ones(params['n_cars']) * params['init_v']
+	# Assign initial positions
+	x_vec = np.linspace(0,params['end_of_track']-params['end_of_track']/6,params['n_cars'])
+	# reverse positions so that car 0 is leading
+	x_vec = x_vec[::-1]
+	# create 1D vector of positions followed by velocities
+	x_v_vec = np.concatenate(([x_vec], [v]), axis=0).reshape(1,-1)[0]
+	# time
+	ts = np.linspace(0,params['total_time'],params['t_steps'])
+	# Solve System of ODEs
+	#params['y_s'] = [x_v_vec]
+	#y_s = sp.integrate.odeint(x_v_dash, y0=x_v_vec, t=ts, args=(params,))
+	y_s=[]
+	y_s.append(x_v_vec)
+	for i in range(1,len(ts)):
+		y_s.append(runge_kutta_4(y_s[-1], x_v_dash, ts[i], ts[i]-ts[i-1], params))
+	y_s = np.array(y_s)
+
+	return y_s
+
 
 if __name__ == '__main__':
 	## Parameters ##
 	params 									= dict()
-	params['v0'] 						= 30.0 # desired velocity (in m/s) of vehicles in free traffic
+	params['v0'] 						= 150.0 # desired velocity (in m/s) of vehicles in free traffic
 	params['init_v'] 				= 5.0 # initial velocity
-	params['T'] 						= 1.5 # Safe following time
+	params['T'] 						= 1 # Safe following time
 	params['a'] 						= 2.0 # Maximum acceleration (in m/s^2)
 	params['b'] 						= 3.0 # Comfortable deceleration (in m/s^2)
 	params['delta'] 				= 4.0 # Acceleration exponent
@@ -174,6 +197,8 @@ if __name__ == '__main__':
 	params['c'] 						= 0.99 # correction factor
 	params['t_start'] = 0.0
 	params['t_step'] = (params['total_time']-params['t_start'])/float(params['t_steps'])
+	params['x_v_dash'] 			= [2*np.zeros(params['n_cars'])]
+
 	v0 = params['v0']
 	init_v = params['init_v']
 	T = params['T']
