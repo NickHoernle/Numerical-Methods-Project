@@ -189,7 +189,6 @@ if __name__ == '__main__':
 	params['total_time'] = 500 # total time (in s)
 	params['t_step'] = (params['total_time'] - params['t_start'])/params['t_steps']
 	params['Tr'] = 0.6 # Reaction time
-	params['na'] = 5 	# number of look ahead cars
 	params['Vs'] = 0.1 # Variation coefficient of gap estimation error
 	params['sigma_r'] = 0.01 # estimation error for the inverse TTC
 	params['sigma_a']= 0.1  # magnitude of acceleration noise
@@ -207,7 +206,6 @@ if __name__ == '__main__':
 	n_cars = params['n_cars']
 	total_time = params['total_time']
 	Tr = params['Tr']
-	na = params['na']
 	Vs = params['Vs']
 	sigma_r = params['sigma_r']
 	sigma_a = params['sigma_a']
@@ -215,7 +213,7 @@ if __name__ == '__main__':
 	tau_a_tilde = params['tau_a_tilde']
 	t_start = params['t_start']
 	t_step = params['t_step']
-	params['n_a'] = 5 # number of cars ahead that the driver is aware of
+	params['n_a'] = n_a # number of cars ahead that the driver is aware of
 	params['w_s'] = wiener_process(tau_tilde, params)
 	params['w_l'] = wiener_process(tau_tilde, params)
 	params['w_a'] = wiener_process(tau_a_tilde, params)
@@ -257,11 +255,10 @@ if __name__ == '__main__':
 	axes[0].set_ylabel('Position')
 	axes[1].set_xlabel('Time')
 	axes[1].set_ylabel('Velocity')
-	plot_out_name = 'HDM_anticipate_{}'.format(params['n_a'])
+	plot_out_name = '../figures/HDM_anticipate_{}.pdf'.format(params['n_a'])
 	plt.savefig(plot_out_name,
 				orientation='landscape',format='pdf',edgecolor='black')
-		plt.close()
-
+	plt.close()
 	# Run a simulation of sorts
 	# Plot Animation of cars on ring track
 	r = (end_of_track/(2*np.pi))
