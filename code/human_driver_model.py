@@ -100,13 +100,9 @@ def x_v_dash2(x_v, t,params,past):
 	# put s for car zero within the bounds of the track
 	s[0] += end_of_track
 	# Compute index of this timestep
-	index = math.floor(t/t_step) if math.floor(t/t_step) < t_steps else t_steps-1
+	index = int(math.floor(t/t_step)) if math.floor(t/t_step) < t_steps else t_steps-1
 	# compute estimate of gap
 	s_est = s * np.exp(Vs * w_s[:, index])
-	# Update history
-	#params['past_s_s'].append(s)
-	#params['past_s_est_s'].append(s_est)
-
 	# Compute estimates v^est
 	# Note that for vehicle i, v^est_l[i] is vehicle i's estimate of
 	# vehicle i-1's speed
@@ -120,7 +116,6 @@ def x_v_dash2(x_v, t,params,past):
 	delta_v_est = v - v_l_est
 	past['past_delta_v_est_s'].append(delta_v_est)
 	# update history
-	#past_v_s = np.array(params['past_v_s'])
 	past_v_l_est_s = np.array(past['past_v_l_est_s'])
 	past_v_est_s = np.roll(past_v_l_est_s,-1)
 	past_dvdt = np.array(past['past_dvdt'])
@@ -133,9 +128,10 @@ def x_v_dash2(x_v, t,params,past):
 		v_l_prog = interp(past_v_l_est_s,0,params)
 		v_prog = interp(past_v_est_s,0,params) + Tr * interp(past_dvdt,0,params)
 		# compute s^prog
+		#print s_est
 		s_prog = s_est - Tr * interp(past_delta_v_est_s,0,params)
 		# compute c_idm
-		c_idm = np.sum([1./j**2 for j in range(1, n_a+1)])**-1
+		c_idm = np.sum([1./j**2 for j in xrange(1, n_a+1)])**(-1)
 		free_term = a_IDM_free(v, params)
 		dvdt = np.zeros(v.shape)
 		# calculate the acceleration of each vehicle one at a time
@@ -143,14 +139,17 @@ def x_v_dash2(x_v, t,params,past):
 		for alpha in xrange(n_cars):
 			free_term_alpha = free_term[alpha]
 			int_term = 0.0
+			v_alpha_prog = np.array([v_prog[alpha]])
 			for beta in xrange(alpha-n_a,alpha):
-				s_alpha_beta_prog = np.array([np.sum(s_prog[beta+1:alpha+1])])
-				v_alpha_prog = np.array([v_prog[alpha]])
-				v_beta_prog = np.array([v_prog[beta]])
+				# we want to sum from beta+1 to alpha
+				# precompute these indices to avoid slicing issues
+				sum_idxs = np.arange(beta+1,alpha+1)
+				#print sum_idxs
+				s_alpha_beta_prog = np.array([np.sum(s_prog[sum_idxs])])
+				#print s_alpha_beta_prog
+				v_beta_prog = np.array([v_l_prog[beta]])
 				int_term += a_IDM_int(v_alpha_prog,s_alpha_beta_prog,v_alpha_prog-v_beta_prog,params)
 			dvdt[alpha] = free_term_alpha + c_idm*int_term
-		print 'new'
-		print dvdt
 	else:
 		# Compute acceleration (with estimation error)
 		dvdt = a_IDM(v,s_est,delta_v_est,params) + sigma_a*w_a[:, index]
@@ -172,7 +171,14 @@ if __name__ == '__main__':
 	params['v0'] = 20.0 # desired velocity (in m/s) of vehicles in free traffic
 	params['init_v'] = 5.0 # initial velocity
 	params['T'] = 1.5 # Safe following time
-	params['a'] = 2.0 # Maximum acceleration (in m/s^2)
+	# Maximum acceleration (in m/s^2)
+	# Note: a is sensitive for the HDM model with anticipation
+	# This is because c_idm is used to scale the acceleration interaction
+	# and a multiplies each term in the interaction sum
+	# SEE PAGE 216 in the book
+	# Ex: a=2.0 is unstable
+	# Ex: a=1.0 is stable
+	params['a'] = 1.0 
 	params['b'] = 3.0 # Comfortable deceleration (in m/s^2)
 	params['delta'] = 4.0 # Acceleration exponent
 	params['s0'] = 2.0 # minimum gap (in m)
@@ -209,20 +215,17 @@ if __name__ == '__main__':
 	tau_a_tilde = params['tau_a_tilde']
 	t_start = params['t_start']
 	t_step = params['t_step']
+	params['n_a'] = 5 # number of cars ahead that the driver is aware of
 	params['w_s'] = wiener_process(tau_tilde, params)
 	params['w_l'] = wiener_process(tau_tilde, params)
 	params['w_a'] = wiener_process(tau_a_tilde, params)
 	params['j'] = int(Tr/t_step) # number of time steps in reaction time
 	params['r'] = Tr/t_step - params['j'] # fractional part of Tr/t_step
-	params['n_a'] = 5 # number of cars ahead that the driver is aware of
-	#params['past_v_s'] = []
 	past = dict()
-	past['past_v_l_est_s'] = deque(maxlen=params['j']+1)
-	#params['past_s_s'] = []
-	#params['past_s_est_s'] = []
-	past['past_delta_v_est_s'] = deque(maxlen=params['j']+1)
+	past['past_v_l_est_s'] = deque(maxlen=params['j']+2)
+	past['past_delta_v_est_s'] = deque(maxlen=params['j']+2)
 
-	past['past_dvdt'] = deque(maxlen=params['j']+1)
+	past['past_dvdt'] = deque(maxlen=params['j']+2)
 
 	v = np.ones(n_cars) * v0 # Initial velocities (in m/s)
 	x_vec = np.linspace(0,end_of_track-end_of_track/5,n_cars)	# Initial positions
@@ -237,6 +240,8 @@ if __name__ == '__main__':
 	for i in range(1,len(ts)):
 		y_s.append(runge_kutta_4(y_s[-1], x_v_dash2, ts[i], ts[i]-ts[i-1],params,past))
 		#params['past_v_s'].append(params['past_y_s'][-1][n_cars:])
+		if i %200 == 0:
+			print "Finished Iteration: i={}".format(i)
 	y_s = np.array(y_s)
 	#y_s = sp.integrate.odeint(x_v_dash, y0=x_v_vec, t=ts,args=(params,))
 
@@ -252,7 +257,10 @@ if __name__ == '__main__':
 	axes[0].set_ylabel('Position')
 	axes[1].set_xlabel('Time')
 	axes[1].set_ylabel('Velocity')
-	plt.show()
+	plot_out_name = 'HDM_anticipate_{}'.format(params['n_a'])
+	plt.savefig(plot_out_name,
+				orientation='landscape',format='pdf',edgecolor='black')
+		plt.close()
 
 	# Run a simulation of sorts
 	# Plot Animation of cars on ring track

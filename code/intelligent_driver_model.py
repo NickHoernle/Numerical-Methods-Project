@@ -31,6 +31,8 @@ def a_IDM(v,s,delta_v,params):
 	delta = params['delta']
 	v0 = params['v0']
 	# Compute dv/dt (i.e. accelerations)
+	#print v0
+	#print s
 	return a*(1-(v/v0)**delta - (s_star(v, delta_v, params)/s)**2)
 
 def compute_a_free(v,s,delta_v,params):
