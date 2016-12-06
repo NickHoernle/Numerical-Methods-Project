@@ -96,6 +96,7 @@ def x_v_dash(x_v, t, params):
 	# Since this is a ring track, car 0 follows car n-1
 	# for vehicle i, delta_v = v[i] - v[i-1]
 	vl = np.roll(v,1)
+	vl[0] = float('inf')
 	# Compute difference in speeds between current car and leading car
 	delta_v = v - vl
 
@@ -105,6 +106,7 @@ def x_v_dash(x_v, t, params):
 	s = np.roll(x_vec,1) - x_vec
 	s[0] += params['end_of_track']
 
+	s[0] = float('inf')
 	# Compute acceleration
 	if params['IDM_model_num'] == 0:
 		# Standard IDM
@@ -117,9 +119,16 @@ def x_v_dash(x_v, t, params):
 	if params['IDM_model_num'] == 2:
 		# AAC IDM
 		dvdt = a_ACC(s, v, vl, dvdt, params)
-
+	if t <= 200:
+		v[0] = 15
+	if t > 200:
+		dvdt[0] = 1
+	if t > 240:
+		dvdt[0] = -1
+	if t > 280:
+		dvdt[0] = 0
 	x_v = np.concatenate((v,dvdt))
-	#params['y_s'].append(x_v)
+	# params['y_s'].append(x_v)
 	return x_v
 
 def runge_kutta_5(x_v_vec_k, x_v_dash, t_k, h, params):
@@ -130,6 +139,7 @@ def runge_kutta_5(x_v_vec_k, x_v_dash, t_k, h, params):
 	k5 = x_v_dash(x_v_vec_k + 439./216*h*k1 -8.*h*k2 + 3680./513*h*k3 - 845./4104*h*k4,t_k*h, params)
 	k6 = x_v_dash(x_v_vec_k - 8./27*h*k1 + 2.*h*k2 -3544./2565*h*k3 + 1859./4104*h*k4 - 11./40*h*k5,t_k*1./2*h, params)
 	x_v_vec_k_next = x_v_vec_k + h * (15./135*k1 + 6656./12825*k3 + 28561./56430*k4 - 9./50*k5 + 2./55*k6)
+	params['x_v_dash'].append(k1)
 	return x_v_vec_k_next
 
 def runge_kutta_4(x_v_vec_k, x_v_dash, t_k, h, params):
@@ -147,17 +157,20 @@ def runge_kutta_3(x_v_vec_k, x_v_dash, t_k, h, params):
 	k2=x_v_dash(x_v_vec_k+.5*h*k1, t_k+.5*h, params)
 	k3=x_v_dash(x_v_vec_k-h*k1+2*h*k2,t_k+h, params)
 	x_v_vec_k_next = x_v_vec_k + h/6. * (k1 + 4*k2 + k3)
+	params['x_v_dash'].append(k1)
 	return x_v_vec_k_next
 
 def heuns_method(x_v_vec_k, x_v_dash, t_k, h, params):
 	k1=x_v_dash(x_v_vec_k,t_k,params)
 	k2=x_v_dash(x_v_vec_k+h*k1, t_k*h, params)
 	x_v_vec_k_next = x_v_vec_k + h/2. * (k1 + k2)
+	params['x_v_dash'].append(k1)
 	return x_v_vec_k_next
 
 def fwd_euler(x_v_vec_k, x_v_dash, t_k, h, params):
 	k1=x_v_dash(x_v_vec_k,t_k,params)
 	x_v_vec_k_next = x_v_vec_k + h * (k1)
+	params['x_v_dash'].append(k1)
 	return x_v_vec_k_next
 
 def run_simulation(params):
@@ -185,9 +198,9 @@ def run_simulation(params):
 if __name__ == '__main__':
 	## Parameters ##
 	params 									= dict()
-	params['v0'] 						= 150.0 # desired velocity (in m/s) of vehicles in free traffic
+	params['v0'] 						= 30.0 # desired velocity (in m/s) of vehicles in free traffic
 	params['init_v'] 				= 5.0 # initial velocity
-	params['T'] 						= 1 # Safe following time
+	params['T'] 						= 1.0 # Safe following time
 	params['a'] 						= 2.0 # Maximum acceleration (in m/s^2)
 	params['b'] 						= 3.0 # Comfortable deceleration (in m/s^2)
 	params['delta'] 				= 4.0 # Acceleration exponent
@@ -236,8 +249,6 @@ if __name__ == '__main__':
 		y_s.append(x_v_vec)
 		for i in range(1,len(ts)):
 			y_s.append(runge_kutta_3(y_s[-1], x_v_dash, ts[i], ts[i]-ts[i-1], params))
-			# pdb.set_trace()
-		y_s = np.array(y_s)
 
 		# Plot position and velocity of each car
 		fig, axes = plt.subplots(1,2, figsize=(16,8))
@@ -254,32 +265,33 @@ if __name__ == '__main__':
 		plot_out_name = "../figures/displacement_and_velocity_plot_model{}.pdf".format(params['IDM_model_num'])
 		plt.savefig(plot_out_name,
 				orientation='landscape',format='pdf',edgecolor='black')
-		plt.close()
+		# plt.close()
+		plt.show()
 
 		# Run a simulation of sorts
 		# Plot Animation of cars on ring track
-		r = (end_of_track/(2*np.pi))
-		fx = lambda x_vec: r*np.sin((x_vec/end_of_track)*2*np.pi)
-		fy = lambda x_vec: r*np.cos((x_vec/end_of_track)*2*np.pi)
-		fig, ax = plt.subplots()
-		t = np.arange(0, end_of_track, dtype=np.float32)
-		t_pos = np.linspace(0, 2*np.pi, n_cars)
-		line, = ax.plot(fx(t), fy(t))
-		cars = ax.scatter(fx(x_vec), fy(x_vec), c='g')
+		# r = (end_of_track/(2*np.pi))
+		# fx = lambda x_vec: r*np.sin((x_vec/end_of_track)*2*np.pi)
+		# fy = lambda x_vec: r*np.cos((x_vec/end_of_track)*2*np.pi)
+		# fig, ax = plt.subplots()
+		# t = np.arange(0, end_of_track, dtype=np.float32)
+		# t_pos = np.linspace(0, 2*np.pi, n_cars)
+		# line, = ax.plot(fx(t), fy(t))
+		# cars = ax.scatter(fx(x_vec), fy(x_vec), c='g')
 
-		def animate(i):
-			x_vec = y_s[i,:n_cars]
-			x_vec = np.remainder(x_vec, end_of_track)
-			new_pos = np.concatenate(([fx(x_vec)], [fy(x_vec)]), axis=0)
-			cars.set_offsets(new_pos.T)
-			return cars,
+		# def animate(i):
+		# 	x_vec = y_s[i,:n_cars]
+		# 	x_vec = np.remainder(x_vec, end_of_track)
+		# 	new_pos = np.concatenate(([fx(x_vec)], [fy(x_vec)]), axis=0)
+		# 	cars.set_offsets(new_pos.T)
+		# 	return cars,
 
-		def init():
-			return cars,
+		# def init():
+		# 	return cars,
 
-		ani = animation.FuncAnimation(fig, animate, range(t_steps), init_func=init, interval=1, blit=False)
+		# ani = animation.FuncAnimation(fig, animate, range(t_steps), init_func=init, interval=1, blit=False)
 
-		ax.set_ylabel('$x$')
-		ax.set_ylabel('$y$')
-		plt.show()
-		plt.close()
+		# ax.set_ylabel('$x$')
+		# ax.set_ylabel('$y$')
+		# plt.show()
+		# plt.close()

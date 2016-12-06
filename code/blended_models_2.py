@@ -82,7 +82,7 @@ def x_v_dash(x_v, t,indices, params,past):
 	# put s for car zero within the bounds of the track
 	s = np.roll(x_vec,1) - x_vec
 	s[0] += params['end_of_track']
-
+	s[0] = 1000
 	# Compute acceleration
 	if params['IDM_model_num'] == 0:
 		# Standard IDM
@@ -127,6 +127,7 @@ def x_v_dash2(x_v, t,indices, params,past):
 	s = np.roll(x_vec,1) - x_vec
 	# put s for car zero within the bounds of the track
 	s[0] += end_of_track
+	s[0] = 1000
 	# Compute index of this timestep
 	index = int(math.floor(t/t_step)) if math.floor(t/t_step) < t_steps else t_steps-1
 	# compute estimate of gap
@@ -146,6 +147,7 @@ def x_v_dash2(x_v, t,indices, params,past):
 	# Since this is a ring track, car 0 follows car n-1
 	# for vehicle i, delta_v_est = v[i] - v_est[i-1]
 	delta_v_est = v - v_l_est
+	# delta_v_est[0] = float('inf')
 	# next_delta_v_est = np.zeros(n_cars*2)
 	# next_delta_v_est[indices] = delta_v_est
 	past['past_delta_v_est_s'][-1][indices[:len(indices)//2]] = delta_v_est[indices[:len(indices)//2]]
@@ -187,6 +189,15 @@ def x_v_dash2(x_v, t,indices, params,past):
 	else:
 		# Compute acceleration (with estimation error)
 		dvdt = a_IDM(v,s_est,delta_v_est,params) + sigma_a*w_a[:, index]
+
+	# if t <= 20:
+	# 	v[0] = 15
+	if t > 25:
+		dvdt[0] = .5 + sigma_a*w_a[0, index]
+	if t > 30:
+		dvdt[0] = -1.5 + sigma_a*w_a[0, index]
+	if t > 45:
+		dvdt[0] =  sigma_a*w_a[0, index]
 	x_v = np.concatenate((v,dvdt))
 	past['past_dvdt'][-1][indices[:len(indices)//2]] = dvdt[indices[:len(indices)//2]]
 	return x_v
@@ -225,7 +236,7 @@ if __name__ == '__main__':
 	params = dict()
 	params['v0'] = 150.0 # desired velocity (in m/s) of vehicles in free traffic
 	params['init_v'] = 5.0 # initial velocity
-	params['T'] = 1. # Safe following time
+	params['T'] = 1.5 # Safe following time
 	# Maximum acceleration (in m/s^2)
 	# Note: a is sensitive for the HDM model with anticipation
 	# This is because c_idm is used to scale the acceleration interaction
@@ -241,10 +252,10 @@ if __name__ == '__main__':
 	params['delta'] = 4.0 # Acceleration exponent
 	params['s0'] = 2.0 # minimum gap (in m)
 	params['end_of_track'] = 600 # in m
-	params['t_steps'] = 1000 # number of timesteps
+	params['t_steps'] = 5000 # number of timesteps
 	params['t_start'] = 0.0
 	params['n_cars'] = 50 # number of vehicles
-	params['total_time'] = 100 # total time (in s)
+	params['total_time'] = 500 # total time (in s)
 	params['c'] = 0.99 # correction factor
 	params['t_step'] = (params['total_time'] - params['t_start'])/params['t_steps']
 	params['Tr'] = .6 # Reaction time
@@ -285,13 +296,11 @@ if __name__ == '__main__':
 	past['past_dvdt'] = deque(maxlen=params['j']+2)
 
 
-	IDM_pct = .9
+	IDM_pct = .75
 
-	indices = np.random.permutation(n_cars)
+	indices = np.random.permutation(range(1,n_cars))
 	IDM_idx = sorted(np.concatenate((indices[:int(IDM_pct*n_cars)],[i + n_cars for i in indices[:int(IDM_pct*n_cars)]]), axis=0))
-
-	HDM_idx = sorted(np.concatenate((indices[int(IDM_pct*n_cars):],[i + n_cars for i in indices[int(IDM_pct*n_cars):]]), axis=0))
-	print HDM_idx
+	HDM_idx = sorted(np.concatenate(([0],indices[int(IDM_pct*n_cars):],[n_cars],[i + n_cars for i in indices[int(IDM_pct*n_cars):]]), axis=0))
 	params['n_IDM_cars'] = int(IDM_pct*n_cars)
 	params['n_HDM_cars'] = n_cars - int(IDM_pct*n_cars)
 
@@ -331,7 +340,7 @@ if __name__ == '__main__':
 	plot_out_name = '../figures/blended_{}.pdf'.format(params['n_a'])
 	plt.savefig(plot_out_name,
 				orientation='landscape',format='pdf',edgecolor='black')
-	plt.close()
+	# plt.show()
 	# Run a simulation of sorts
 	# Plot Animation of cars on ring track
 	r = (end_of_track/(2*np.pi))
