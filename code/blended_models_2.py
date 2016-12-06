@@ -23,6 +23,11 @@ def compute_a_free(v,s,delta_v,params):
 	# pdb.set_trace()
 	return mask*(a*(1-(v/v0)**delta))+(1-mask)*(-b*(1-(v0/v)**(a*delta/b)))
 
+def a_IDM_int(v,s,delta_v,params):
+	# Compute a^IDM_int
+	a = params['a_idm']
+	return -a*(s_star(v, delta_v, params)/s)**2
+
 def a_IIDM(v,s,delta_v,params):
 	# compute acceleration for IIDM model
 	a = params['a_idm']
@@ -165,7 +170,7 @@ def x_v_dash2(x_v, t,indices, params,past):
 		dvdt = np.zeros(v.shape)
 		# calculate the acceleration of each vehicle one at a time
 		# As written in Eq 12.20 of the textbook
-		for alpha in xrange(n_HDM_cars):
+		for alpha in xrange(n_cars):
 			free_term_alpha = free_term[alpha]
 			int_term = 0.0
 			v_alpha_prog = np.array([v_prog[alpha]])
@@ -218,7 +223,7 @@ def runge_kutta_blended_4(x_v_vec_k,x_v_dash, x_v_dash_2, t_k, h,indices1, indic
 if __name__ == '__main__':
 	## Parameters ##
 	params = dict()
-	params['v0'] = 250.0 # desired velocity (in m/s) of vehicles in free traffic
+	params['v0'] = 150.0 # desired velocity (in m/s) of vehicles in free traffic
 	params['init_v'] = 5.0 # initial velocity
 	params['T'] = 1. # Safe following time
 	# Maximum acceleration (in m/s^2)
@@ -228,18 +233,18 @@ if __name__ == '__main__':
 	# SEE PAGE 216 in the book
 	# Ex: a=2.0 is unstable
 	# Ex: a=1.0 is stable
-	params['a'] = 1.0
+	params['a'] = 2.0
 	params['T_idm'] = 1.
-	params['a_idm'] = 1.0
+	params['a_idm'] = 2.0
 	params['v0_idm'] = 150.0
 	params['b'] = 3.0 # Comfortable deceleration (in m/s^2)
 	params['delta'] = 4.0 # Acceleration exponent
 	params['s0'] = 2.0 # minimum gap (in m)
 	params['end_of_track'] = 600 # in m
-	params['t_steps'] = 5000 # number of timesteps
+	params['t_steps'] = 1000 # number of timesteps
 	params['t_start'] = 0.0
 	params['n_cars'] = 50 # number of vehicles
-	params['total_time'] = 500 # total time (in s)
+	params['total_time'] = 100 # total time (in s)
 	params['c'] = 0.99 # correction factor
 	params['t_step'] = (params['total_time'] - params['t_start'])/params['t_steps']
 	params['Tr'] = .6 # Reaction time
