@@ -18,8 +18,8 @@ def cost_wrapper(optimize_params, cost_func, optimize_variables, params):
 	acceleration = x_v_dash[:,params['n_cars']:].T
 
 	# We should be able to write cost functions based on these three variables
-	return cost_func(displacement, velocity, acceleration, params)
-
+	c = cost_func(displacement, velocity, acceleration, params)
+	return c
 
 # Define the cost functions:
 
@@ -28,7 +28,7 @@ def cost_wrapper(optimize_params, cost_func, optimize_variables, params):
 # Note: Minimmising the travel time is the same as maximising the
 # displacement across the time interval
 def maximise_displacement(displacement, velocity, acceleration, params):
-	return 1-np.sum(displacement[:,-1])
+	return 1-np.sum(displacement[:,-1])/float(params['n_cars'])
 
 # Cost Function 2
 # Maximizing the driving comfort (minimise discomfort) -> Page 419
@@ -44,14 +44,21 @@ def comfort_cost(displacement, velocity, acceleration, params):
 									y=integrand,
 									axis=0
 								)
+	return cost
 
+def comfort_cost_nick(displacement, velocity, acceleration, params):
+	cost = np.sum(np.abs(acceleration[:,-1]))/float(params['n_cars'])
 	return cost
 
 # Cost Function 3
 # Maximise average velocity
 def maximise_velocity(displacement, velocity, acceleration, params):
-	return 1-np.sum(displacement[:,-1])/params['n_cars']
+	return 1-np.sum(velocity[:,-1])/float(params['n_cars'])
 
+# Cost Function 4
+# Combination model
+def combination_model(displacement, velocity, acceleration, params):
+	return maximise_velocity(displacement, velocity, acceleration, params) + maximise_displacement(displacement, velocity, acceleration, params)/100. +comfort_cost_nick(displacement, velocity, acceleration, params)
 
 if __name__ == '__main__':
 	# define the params in this context
@@ -59,10 +66,10 @@ if __name__ == '__main__':
 	params['v0'] 						= 30.0 # desired velocity (in m/s) of vehicles in free traffic
 	params['init_v'] 				= 5.0 # initial velocity
 	params['T'] 						= 1.5 # Safe following time
-	params['a'] 						= 2.0 # Maximum acceleration (in m/s^2)
-	params['b'] 						= 3.0 # Comfortable deceleration (in m/s^2)
+	params['a'] 						= 1.0 # Maximum acceleration (in m/s^2)
+	params['b'] 						= 2.0 # Comfortable deceleration (in m/s^2)
 	params['delta'] 				= 4.0 # Acceleration exponent
-	params['s0'] 						= 2.0 # minimum gap (in m)
+	params['s0'] 						= 2. # minimum gap (in m)
 	params['end_of_track'] 	= 600 # in m
 	params['t_steps'] 			= 1000 # number of timesteps
 	params['n_cars'] 				= 50 # number of vehicles
@@ -70,15 +77,30 @@ if __name__ == '__main__':
 	params['c'] 						= 0.99 # correction factor
 	params['t_start']  			= 0.0
 	params['t_step'] = (params['total_time']-params['t_start'])/float(params['t_steps'])
-	params['IDM_model_num'] = 1 # set the model to work with (1,2,3)
+	params['IDM_model_num'] = 0 # set the model to work with (0,1,2)
 	params['x_v_dash'] 			= [np.zeros(2*params['n_cars'])]
 
 	# This runs an optimisation over comfort
-	# solution = sp.optimize.minimize(cost_wrapper, [2.5, 15] , args=(comfort_cost, ['T', 'v0'], params), bounds=[(1, 100), (5, 100)])
+	# solution = sp.optimize.minimize(cost_wrapper, [5.] , args=(comfort_cost_nick, ['v0'], params), bounds=[(2., 100.)])
 
 	# This runs an optimisation over distance travelled
-	# solution = sp.optimize.minimize(cost_wrapper, [2.5, 15] , args=(maximise_displacement, ['T', 'v0'], params), bounds=[(100, 10), (5, 100)])
+	# solution = sp.optimize.minimize(cost_wrapper, [4, 10] , args=(maximise_displacement, ['T', 'v0'], params), bounds=[(1.5, 10), (5, 500)])
 
 	# This runs an optimisation to get best average velocity
-	solution = sp.optimize.minimize(cost_wrapper, [2.5, 15] , args=(maximise_velocity, ['s0', 'v0'], params), bounds=[(1, 100), (5, 100)])
+	# solution = sp.optimize.minimize(cost_wrapper, [2.5, 25] , args=(maximise_velocity, ['s0', 'v0'], params), bounds=[(2, 100), (5, 100)])
+	# This runs an optimisation over distance travelled
+
+	solution = sp.optimize.minimize(cost_wrapper, [5.] , args=(combination_model, ['v0'], params), bounds=[(2., 500.)])
+	# solution = sp.optimize.minimize(cost_wrapper, [5.] , args=(maximise_displacement, ['v0'], params), bounds=[(2., 100.)])
+
 	print solution.x
+	pdb.set_trace()
+
+
+
+
+
+
+
+
+
