@@ -35,16 +35,20 @@
 \section{Introduction}
 The modeling of traffic at traffic lights, on highways, in dense streams etc. can often present a problem that is too complicated to solve analytically. This is mainly due to the inherent random movements of cars, the number of individually moving cars and the many scenarios that can be analyzed. These scenarios can be modeled numerically by applying the equations of motion to a system of vehicles and observing the impact of a number of outcomes. In this project, we will present an analytical solution to a number of simplistic scenarios involving traffic (cars starting from a red light, cars approaching a red light etc). We will then present the same scenario using a numerically calculated solution, modeling the cars using a differential setting where one car's motion is dependent on the car that is in front of it. We will then extend the scope of this analysis and introduce a number of varying factors into the model to analyze the motion of cars along a straight road, analyze the cars along a circular track and finally include autonomous cars with the human controlled vehicles. These autonomous cars have more precise, and faster reacting velocity controllers and the inclusion of vehicles such as these in the model is expected to smooth the flow of traffic and ultimately increase the density of traffic flow.
 
+\section{Macroscopic Perspective of Traffic Interaction}
+There are generally two ways to model traffic. In the macroscopic perspective, traffic is viewed as a fluid or gas with a given maximum density moving according to the laws of conservation of mass. Because we'd like to interweave different models for specific cars, these models would be difficult to blend in a way that is easily interpretable. 
+
 \section{Microscopic Perspective of Traffic Interaction - The Analytical Solution}
 
-\section{Macroscopic Perspective of Traffic Interaction}
+\section{Microscopic Perspective of Traffic Interaction : \\Intelligent Driver Models}
+In the microscopic perspective, individual cars are modeled as particles that move according to a relationship to their leading particle(s).
 For this section of the problem, we will model the behaviors of cars in a stream of traffic individually. We will then simulate the movement of this stream of cars and demonstrate some well known traffic phenomenon (cars starting from a red traffic light will propagate forward in a wave formation, cars traveling along a straight road will oscillate into a traffic jam). Furthermore, we will use different controllers to simulate the means by which cars can control their acceleration and will be able to simulate the effect that autonomous cars may have for the throughput of a stream of traffic for varying car densities. This numerical analysis can be contrasted to the analytical solution that was presented in (**another section 2?**).\par
-A cars speed is governed by the laws of motion:
+A car`s speed is governed by the laws of motion:
 \begin{equation}
 v_f = v_i + a\Delta t
 \end{equation}
 
-An individual car can be modeled as such over a 100,000m track and asked to travel at $v_{target} = 60miles.h^{-1}$ (i.e. $26.8m.s^{-1}$). As, the driver is not an perfect controller he is unable to hold the speed exactly at $v_{target}$. We can therefore model his fluctuations as random acceleration with the corresponding adjustments to correct the acceleration:
+An individual car can be modeled as such over a 100,000m track and asked to travel at $v_{target} = 60miles.h^{-1}$ (i.e. $26.8m.s^{-1}$). As the driver is not an perfect controller he is unable to hold the speed exactly at $v_{target}$. We can therefore model his fluctuations as random acceleration with the corresponding adjustments to correct the acceleration:
 \begin{equation}
 a_{correction_i} = \alpha(v_{instant} - v_{target}) + N(0,\sigma_1)
 \end{equation}
@@ -65,7 +69,21 @@ If we assume the cars should travel at $v_{target}$ and that they should maintai
 v_{i} = \frac{d(a_i)}{dt}
 \end{equation}
 
+\section{Microscopic Perspective of Traffic Interaction : Human Driver Models}
 
+\section{Numerical Simulations of Traffic Systems}
+
+\section{Stability Comparison of a Variety of Numerical Integration Schemes}
+
+\section{String Stability of Traffic Systems to Perturbation}
+
+\section{Optimization of Traffic Systems}
+
+\section{TODO}
+run stability analysis of Runge Kutta schemes \\
+develop a way to run smaller timesteps over any portion we think is likely to explode (although not actually sure how much this will help) \\
+develop a cost function for emissions/energy usage and optimize over that \\
+can we find the parameters that will cause a phantom traffic jam?
 
 \end{document}
 
