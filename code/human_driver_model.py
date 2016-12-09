@@ -178,7 +178,7 @@ if __name__ == '__main__':
 	# SEE PAGE 216 in the book
 	# Ex: a=2.0 is unstable
 	# Ex: a=1.0 is stable
-	params['a'] = 1.0 
+	params['a'] = 1.0
 	params['b'] = 3.0 # Comfortable deceleration (in m/s^2)
 	params['delta'] = 4.0 # Acceleration exponent
 	params['s0'] = 2.0 # minimum gap (in m)
@@ -213,7 +213,7 @@ if __name__ == '__main__':
 	tau_a_tilde = params['tau_a_tilde']
 	t_start = params['t_start']
 	t_step = params['t_step']
-	params['n_a'] = n_a # number of cars ahead that the driver is aware of
+	params['n_a'] = 5 # number of cars ahead that the driver is aware of
 	params['w_s'] = wiener_process(tau_tilde, params)
 	params['w_l'] = wiener_process(tau_tilde, params)
 	params['w_a'] = wiener_process(tau_a_tilde, params)
@@ -255,9 +255,9 @@ if __name__ == '__main__':
 	axes[0].set_ylabel('Position')
 	axes[1].set_xlabel('Time')
 	axes[1].set_ylabel('Velocity')
-	plot_out_name = '../figures/HDM_anticipate_{}.pdf'.format(params['n_a'])
+	plot_out_name = '../figures/HDM_anticipate_{}.png'.format(params['n_a'])
 	plt.savefig(plot_out_name,
-				orientation='landscape',format='pdf',edgecolor='black')
+				orientation='landscape',format='png',edgecolor='black')
 	plt.close()
 	# Run a simulation of sorts
 	# Plot Animation of cars on ring track

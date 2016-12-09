@@ -96,7 +96,7 @@ def x_v_dash(x_v, t, params):
 	# Since this is a ring track, car 0 follows car n-1
 	# for vehicle i, delta_v = v[i] - v[i-1]
 	vl = np.roll(v,1)
-	vl[0] = float('inf')
+	# vl[0] = float('inf')
 	# Compute difference in speeds between current car and leading car
 	delta_v = v - vl
 
@@ -106,7 +106,7 @@ def x_v_dash(x_v, t, params):
 	s = np.roll(x_vec,1) - x_vec
 	s[0] += params['end_of_track']
 
-	s[0] = float('inf')
+	# s[0] = float('inf')
 	# Compute acceleration
 	if params['IDM_model_num'] == 0:
 		# Standard IDM
@@ -119,14 +119,14 @@ def x_v_dash(x_v, t, params):
 	if params['IDM_model_num'] == 2:
 		# AAC IDM
 		dvdt = a_ACC(s, v, vl, dvdt, params)
-	if t <= 200:
-		v[0] = 15
-	if t > 200:
-		dvdt[0] = 1
-	if t > 240:
-		dvdt[0] = -1
-	if t > 280:
-		dvdt[0] = 0
+	# if t <= 200:
+	# 	v[0] = 15
+	# if t > 200:
+	# 	dvdt[0] = 1
+	# if t > 240:
+	# 	dvdt[0] = -1
+	# if t > 280:
+	# 	dvdt[0] = 0
 	x_v = np.concatenate((v,dvdt))
 	# params['y_s'].append(x_v)
 	return x_v
@@ -250,6 +250,7 @@ if __name__ == '__main__':
 		for i in range(1,len(ts)):
 			y_s.append(runge_kutta_3(y_s[-1], x_v_dash, ts[i], ts[i]-ts[i-1], params))
 
+		y_s = np.array(y_s)
 		# Plot position and velocity of each car
 		fig, axes = plt.subplots(1,2, figsize=(16,8))
 		# Plot positions over time
@@ -262,9 +263,9 @@ if __name__ == '__main__':
 		axes[0].set_ylabel('Displacement')
 		axes[1].set_xlabel('Time')
 		axes[1].set_ylabel('Velocity')
-		plot_out_name = "../figures/displacement_and_velocity_plot_model{}.pdf".format(params['IDM_model_num'])
+		plot_out_name = "../figures/displacement_and_velocity_plot_model{}.png".format(params['IDM_model_num'])
 		plt.savefig(plot_out_name,
-				orientation='landscape',format='pdf',edgecolor='black')
+				orientation='landscape',format='png',edgecolor='black')
 		# plt.close()
 		plt.show()
 
