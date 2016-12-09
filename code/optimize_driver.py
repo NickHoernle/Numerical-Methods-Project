@@ -204,6 +204,64 @@ def x_v_dash2_driver_human(x_v, t,params,past,driveridx, driverparams):
 	past['past_dvdt'].append(dvdt)
 	return x_v
 
+# define a wrapper function to determine what cost is being calculated
+# def cost_wrapper(optimize_params, cost_func, optimize_variables, params):
+# 	for var, param in zip(optimize_variables, optimize_params):
+# 		params[var] = param
+#
+# 	simulation_result = intelligent_driver_model.run_simulation(params)
+# 	# pdb.set_trace()
+# 	x_v_dash = np.array(params['x_v_dash'])
+#
+# 	displacement = simulation_result[:,:params['n_cars']].T
+# 	velocity = simulation_result[:,params['n_cars']:].T
+# 	acceleration = x_v_dash[:,params['n_cars']:].T
+#
+# 	# We should be able to write cost functions based on these three variables
+# 	c = cost_func(displacement, velocity, acceleration, params)
+# 	return c
+#
+# # Define the cost functions:
+#
+# # Cost Function 1
+# # Minimizing the total travel time -> Page 419
+# # Note: Minimising the travel time is the same as maximising the
+# # displacement across the time interval
+# def maximise_displacement(displacement, velocity, acceleration, params):
+# 	return 1-np.sum(displacement[:,-1])/float(params['n_cars'])
+#
+# # Cost Function 2
+# # Maximizing the driving comfort (minimise discomfort) -> Page 419
+# def comfort_cost(displacement, velocity, acceleration, params):
+# 	tau0 = 	1. #s -> characteristic time
+# 	a0 = 		1. # m/s**2
+# 	T0 = 		1. # arbitrary normalisation constant
+#
+# 	# enforce smooth boundary condition
+# 	acceleration_dash = np.concatenate((np.zeros((params['n_cars'],1)), np.diff(acceleration)/params['t_step']), axis=1)
+# 	integrand = np.sum(acceleration**2 + tau0**2*acceleration_dash**2, axis=0)
+# 	cost = 1/(T0*a0**2)*sp.integrate.trapz(
+# 									y=integrand,
+# 									axis=0
+# 								)
+# 	return cost
+#
+# def comfort_cost_nick(displacement, velocity, acceleration, params):
+# 	cost = np.sum(np.abs(acceleration[:,-1]))/float(params['n_cars'])
+# 	return cost
+#
+# # Cost Function 3
+# # Maximise average velocity
+# def maximise_velocity(displacement, velocity, acceleration, params):
+# 	return 1-np.sum(velocity[:,-1])/float(params['n_cars'])
+#
+# # Cost Function 4
+# # Combination model
+# def combination_model(displacement, velocity, acceleration, params):
+# 	return maximise_velocity(displacement, velocity, acceleration, params) + maximise_displacement(displacement, velocity, acceleration, params)/100. +comfort_cost_nick(displacement, velocity, acceleration, params)
+
+
+
 if __name__ == '__main__':
 	## Parameters ##
 	params = dict()
@@ -268,55 +326,59 @@ if __name__ == '__main__':
 	past['past_delta_v_est_s'] = deque(maxlen=params['j']+2)
 	past['past_dvdt'] = deque(maxlen=params['j']+2)
 
+    solution = sp.optimize.minimize(cost_wrapper, [5.] , args=(combination_model, ['v0'], params), bounds=[(2., 500.)])
+	# solution = sp.optimize.minimize(cost_wrapper, [5.] , args=(maximise_displacement, ['v0'], params), bounds=[(2., 100.)])
 
-	IDM_pct = .3
-	np.random.seed(0)
-	indices = np.random.permutation(range(2,n_cars))
-	IDM_idx = sorted(np.concatenate(([1,2],indices[:int(IDM_pct*n_cars)],[n_cars+1, n_cars+2], [i + n_cars for i in indices[:int(IDM_pct*n_cars)]]), axis=0))
-	HDM_idx = sorted(np.concatenate(([0],indices[int(IDM_pct*n_cars):],[n_cars],[i + n_cars for i in indices[int(IDM_pct*n_cars):]]), axis=0))
-	params['n_IDM_cars'] = int(IDM_pct*n_cars)
-	params['n_HDM_cars'] = n_cars - int(IDM_pct*n_cars)
+	print solution.x
 
-	v = np.ones(n_cars) * params['init_v']# Initial velocities (in m/s)
-	x_vec = np.linspace(0,end_of_track-end_of_track/5,n_cars)	# Initial positions
-	# reverse initial positions
-	x_vec = x_vec[::-1]
-	ts = np.linspace(t_start,total_time,t_steps) # time steps
-	x_v_vec = np.concatenate(([x_vec], [v]), axis=0).reshape(1,-1)[0]
-	# Runge Kutta isn't quite working, but I haven't looked into why
-	y_s = []
-	y_s.append(x_v_vec)
-	#params['past_v_s'].append(v)
-	for i in range(1,len(ts)):
-
-		# y_next = runge_kutta_blended_4(y_s[-1], x_v_dash, x_v_dash2, ts[i], ts[i]-ts[i-1],IDM_idx, HDM_idx, params, past)
-		# x_next = y_next[:n_cars]
-		# v_next = y_next[n_cars:]
-		# v_next[v_next<0]=0
-		# y_next = np.concatenate((x_next, v_next), axis=0)
-		# # y_next = runge_kutta_blended_5(y_s[-1], x_v_dash, x_v_dash2, ts[i], ts[i]-ts[i-1],IDM_idx, HDM_idx, params, past)
-		# # pdb.set_trace()
-		# y_s.append(y_next)
-        # runge_kutta_4_driverparams(x_v_vec_k, x_v_dash, t_k, h, params, driveridx, driverparams):
-		y_s.append(runge_kutta_4_driverparams(y_s[-1], x_v_dash2, ts[i], ts[i]-ts[i-1],params,past, driveridx, driverparams))
-		#params['past_v_s'].append(params['past_y_s'][-1][n_cars:])
-		if i %200 == 0:
-			print "Finished Iteration: i={}".format(i)
-	y_s = np.array(y_s)
-	#y_s = sp.integrate.odeint(x_v_dash, y0=x_v_vec, t=ts,args=(params,))
-
-	# Plot position and velocity of each car
-	fig, axes = plt.subplots(1,2, figsize=(16,8))
-	# Plot positions over time
-	for car in xrange(n_cars):
-		axes[0].plot(ts, y_s[:,car])
-	# Plot velocity over time
-	for car in xrange(n_cars):
-		axes[1].plot(ts, y_s[:,car+n_cars])
-	axes[0].set_xlabel('Time')
-	axes[0].set_ylabel('Position')
-	axes[1].set_xlabel('Time')
-	axes[1].set_ylabel('Velocity')
-	plot_out_name = '../figures/blended_{}.png'.format(params['n_a'])
-	plt.savefig(plot_out_name,
-				orientation='landscape',format='png',edgecolor='black')
+	# IDM_pct = .3
+	# np.random.seed(0)
+	# indices = np.random.permutation(range(2,n_cars))
+	# IDM_idx = sorted(np.concatenate(([1,2],indices[:int(IDM_pct*n_cars)],[n_cars+1, n_cars+2], [i + n_cars for i in indices[:int(IDM_pct*n_cars)]]), axis=0))
+	# HDM_idx = sorted(np.concatenate(([0],indices[int(IDM_pct*n_cars):],[n_cars],[i + n_cars for i in indices[int(IDM_pct*n_cars):]]), axis=0))
+	# params['n_IDM_cars'] = int(IDM_pct*n_cars)
+	# params['n_HDM_cars'] = n_cars - int(IDM_pct*n_cars)
+    #
+	# v = np.ones(n_cars) * params['init_v']# Initial velocities (in m/s)
+	# x_vec = np.linspace(0,end_of_track-end_of_track/5,n_cars)	# Initial positions
+	# # reverse initial positions
+	# x_vec = x_vec[::-1]
+	# ts = np.linspace(t_start,total_time,t_steps) # time steps
+	# x_v_vec = np.concatenate(([x_vec], [v]), axis=0).reshape(1,-1)[0]
+	# # Runge Kutta isn't quite working, but I haven't looked into why
+	# y_s = []
+	# y_s.append(x_v_vec)
+	# #params['past_v_s'].append(v)
+	# for i in range(1,len(ts)):
+    #
+	# 	# y_next = runge_kutta_blended_4(y_s[-1], x_v_dash, x_v_dash2, ts[i], ts[i]-ts[i-1],IDM_idx, HDM_idx, params, past)
+	# 	# x_next = y_next[:n_cars]
+	# 	# v_next = y_next[n_cars:]
+	# 	# v_next[v_next<0]=0
+	# 	# y_next = np.concatenate((x_next, v_next), axis=0)
+	# 	# # y_next = runge_kutta_blended_5(y_s[-1], x_v_dash, x_v_dash2, ts[i], ts[i]-ts[i-1],IDM_idx, HDM_idx, params, past)
+	# 	# # pdb.set_trace()
+	# 	# y_s.append(y_next)
+    #     # runge_kutta_4_driverparams(x_v_vec_k, x_v_dash, t_k, h, params, driveridx, driverparams):
+	# 	y_s.append(runge_kutta_4_driverparams(y_s[-1], x_v_dash2, ts[i], ts[i]-ts[i-1],params,past, driveridx, driverparams))
+	# 	#params['past_v_s'].append(params['past_y_s'][-1][n_cars:])
+	# 	if i %200 == 0:
+	# 		print "Finished Iteration: i={}".format(i)
+	# y_s = np.array(y_s)
+	# #y_s = sp.integrate.odeint(x_v_dash, y0=x_v_vec, t=ts,args=(params,))
+    #
+	# # Plot position and velocity of each car
+	# fig, axes = plt.subplots(1,2, figsize=(16,8))
+	# # Plot positions over time
+	# for car in xrange(n_cars):
+	# 	axes[0].plot(ts, y_s[:,car])
+	# # Plot velocity over time
+	# for car in xrange(n_cars):
+	# 	axes[1].plot(ts, y_s[:,car+n_cars])
+	# axes[0].set_xlabel('Time')
+	# axes[0].set_ylabel('Position')
+	# axes[1].set_xlabel('Time')
+	# axes[1].set_ylabel('Velocity')
+	# plot_out_name = '../figures/blended_{}.png'.format(params['n_a'])
+	# plt.savefig(plot_out_name,
+	# 			orientation='landscape',format='png',edgecolor='black')
