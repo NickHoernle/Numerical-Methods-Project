@@ -9,12 +9,19 @@ from intelligent_driver_model import *
 from human_driver_model import *
 import copy
 
-def runge_kutta_4_driverparams(x_v_vec_k, x_v_dash, t_k, h, params, driveridx, driverparams):
-	k1=x_v_dash(x_v_vec_k,t_k, params,driveridx, driverparams)
-	k2=x_v_dash(x_v_vec_k+.5*h*k1,t_k+.5*h, params,driveridx, driverparams)
-	k3=x_v_dash(x_v_vec_k+.5*h*k2,t_k+.5*h, params,driveridx, driverparams)
-	k4=x_v_dash(x_v_vec_k+h*k3,t_k+h, params,driveridx, driverparams)
-	x_v_vec_k_next = x_v_vec_k + h/6. * (k1 + 2*k2 + 2*k3 + k4)
+def runge_kutta_4_driverparams(x_v_vec_k, x_v_dash, t_k, h, params, driveridx, driverparams, past):
+	if x_v_dash == x_v_dash_driver:
+		k1=x_v_dash(x_v_vec_k,t_k, params,driveridx, driverparams)
+		k2=x_v_dash(x_v_vec_k+.5*h*k1,t_k+.5*h, params,driveridx, driverparams)
+		k3=x_v_dash(x_v_vec_k+.5*h*k2,t_k+.5*h, params,driveridx, driverparams)
+		k4=x_v_dash(x_v_vec_k+h*k3,t_k+h, params,driveridx, driverparams)
+		x_v_vec_k_next = x_v_vec_k + h/6. * (k1 + 2*k2 + 2*k3 + k4)
+	else:
+		k1=x_v_dash(x_v_vec_k,t_k, params,driveridx, driverparams, past)
+		k2=x_v_dash(x_v_vec_k+.5*h*k1,t_k+.5*h, params,driveridx, driverparams, past)
+		k3=x_v_dash(x_v_vec_k+.5*h*k2,t_k+.5*h, params,driveridx, driverparams, past)
+		k4=x_v_dash(x_v_vec_k+h*k3,t_k+h, params,driveridx, driverparams, past)
+		x_v_vec_k_next = x_v_vec_k + h/6. * (k1 + 2*k2 + 2*k3 + k4)
 	# store the derivative at each timestep
 	params['x_v_dash'].append(k1)
 	return x_v_vec_k_next
@@ -44,12 +51,15 @@ def x_v_dash_driver(x_v, t, params, driveridx, driverparams):
 	# s[0] = float('inf')
 	# Compute acceleration
 	# pdb.set_trace()
+	index = math.floor(t/t_step) if math.floor(t/t_step) < t_steps else t_steps-1
+	w_a = params['w_a']
 	if params['IDM_model_num'] == 0:
 		# Standard IDM
 		dvdt = a_IDM(v,s,delta_v,params)
 		# pdb.set_trace()
 		dvdt_2 = a_IDM(v,s,delta_v,driverparams)
 		dvdt[driveridx] = dvdt_2[driveridx]
+		dvdt[0] += sigma_a*w_a[0, index]
 	else:
 		# compute Improved IDM acceration function
 		# Note: we compute this acceleration function for both IIDM and ACC
@@ -110,7 +120,7 @@ def x_v_dash_driver_human(x_v, t,params,driveridx, driverparams):
 	x_v = np.concatenate((v,dvdt))
 	return x_v
 
-def x_v_dash2_driver_human(x_v, t,params,past,driveridx, driverparams):
+def x_v_dash2_driver_human(x_v, t,params,driveridx, driverparams,past):
 	# Compute derivatives of position and velocity
 	t_step = params['t_step']
 	t_steps = params['t_steps']
@@ -228,12 +238,36 @@ def run_idm_simulation(params, driveridx, driverparams):
 
 	return y_s
 
+def run_hdm_simulation(params, driveridx, driverparams, past):
+	v = np.ones(params['n_cars']) * params['init_v']
+	# Assign initial positions
+	x_vec = np.linspace(0,params['end_of_track']-params['end_of_track']/6,params['n_cars'])
+	# reverse positions so that car 0 is leading
+	x_vec = x_vec[::-1]
+	# create 1D vector of positions followed by velocities
+	x_v_vec = np.concatenate(([x_vec], [v]), axis=0).reshape(1,-1)[0]
+	# time
+	ts = np.linspace(0,params['total_time'],params['t_steps'])
+	# Solve System of ODEs
+	#params['y_s'] = [x_v_vec]
+	#y_s = sp.integrate.odeint(x_v_dash, y0=x_v_vec, t=ts, args=(params,))
+	y_s=[]
+	y_s.append(x_v_vec)
+	for i in range(1,len(ts)):
+		y_s.append(runge_kutta_4_driverparams(y_s[-1], x_v_dash2_driver_human, ts[i], ts[i]-ts[i-1], params,driveridx, driverparams, past))
+	y_s = np.array(y_s)
+
+	return y_s
+
+
 # define a wrapper function to determine what cost is being calculated
-def cost_wrapper(optimize_params, cost_func, optimize_variables, params, driveridx, driverparams):
+def cost_wrapper(optimize_params, cost_func, optimize_variables, params, driveridx, driverparams, past):
 	for var, param in zip(optimize_variables, optimize_params):
 		driverparams[var] = param
 
-	simulation_result = run_idm_simulation(params, driveridx, driverparams)
+	# simulation_result = run_idm_simulation(params, driveridx, driverparams)
+	simulation_result = run_hdm_simulation(params, driveridx, driverparams, past)
+
 	# pdb.set_trace()
 	x_v_dash = np.array(params['x_v_dash'])
 
@@ -243,6 +277,9 @@ def cost_wrapper(optimize_params, cost_func, optimize_variables, params, driveri
 #
 # 	# We should be able to write cost functions based on these three variables
 	c = cost_func(displacement, velocity, acceleration, params, driveridx)
+	# pdb.set_trace()
+	if sum(sum(np.isnan(np.array(x_v_dash))))>0:
+		c = inf
 	return c
 #
 # # Define the cost functions:
@@ -289,9 +326,9 @@ def maximise_displacement(displacement, velocity, acceleration, params,driveridx
 if __name__ == '__main__':
 	## Parameters ##
 	params = dict()
-	params['v0'] = 30.0 # desired velocity (in m/s) of vehicles in free traffic
+	params['v0'] = 50.0 # desired velocity (in m/s) of vehicles in free traffic
 	params['init_v'] = 5.0 # initial velocity
-	params['T'] = 2.5 # Safe following time
+	params['T'] = 1. # Safe following time
 	# Maximum acceleration (in m/s^2)
 	# Note: a is sensitive for the HDM model with anticipation
 	# This is because c_idm is used to scale the acceleration interaction
@@ -302,11 +339,11 @@ if __name__ == '__main__':
 	params['a'] = 1.0
 	params['T_idm'] = 1.
 	params['a_idm'] = 1.0
-	params['v0_idm'] = 30.0
+	params['v0_idm'] = 50.0
 	params['b'] = 3.0 # Comfortable deceleration (in m/s^2)
 	params['delta'] = 4.0 # Acceleration exponent
 	params['s0'] = 10.0 # minimum gap (in m)
-	params['end_of_track'] = 1000 # in m
+	params['end_of_track'] = 800 # in m
 	params['t_steps'] = 10000 # number of timesteps
 	params['t_start'] = 0.0
 	params['n_cars'] = 10 # number of vehicles
@@ -316,7 +353,7 @@ if __name__ == '__main__':
 	params['Tr'] = .6 # Reaction time
 	params['Vs'] = 0.1 # Variation coefficient of gap estimation error
 	params['sigma_r'] = 0.01 # estimation error for the inverse TTC
-	params['sigma_a']= 0.01  # magnitude of acceleration noise
+	params['sigma_a']= 1.  # magnitude of acceleration noise
 	params['tau_tilde'] = 20.0 # persistence time of estimation errors (in s)
 	params['tau_a_tilde'] =  1.0 # persistence time of acceleration noise (in s)
 	v0 = params['v0']
@@ -351,9 +388,29 @@ if __name__ == '__main__':
 	past['past_delta_v_est_s'] = deque(maxlen=params['j']+2)
 	past['past_dvdt'] = deque(maxlen=params['j']+2)
 	driverparams = copy.deepcopy(params)
+	driverparams['s0'] = .1
 
-	for i in range(0,9):
+	# y_s = run_idm_simulation(params, 1, driverparams)
+	# fig, axes = plt.subplots(1,2, figsize=(16,8))
+	# # Plot positions over time
+	# ts = np.linspace(0,params['total_time'],params['t_steps'])
+	# for car in xrange(n_cars):
+	# 	axes[0].plot(ts, y_s[:,car])
+	# # Plot velocity over time
+	# for car in xrange(n_cars):
+	# 	axes[1].plot(ts, y_s[:,car+n_cars])
+	# axes[0].set_xlabel('Time')
+	# axes[0].set_ylabel('Displacement')
+	# axes[1].set_xlabel('Time')
+	# axes[1].set_ylabel('Velocity')
+	# # plot_out_name = "../figures/displacement_and_velocity_plot_model{}.png".format(params['IDM_model_num'])
+	# # plt.savefig(plot_out_name,
+	# # 		orientation='landscape',format='png',edgecolor='black')
+	# # plt.close()
+	# plt.show()
+
+	for i in range(1,9):
 	# solution = sp.optimize.minimize(cost_wrapper, [5.] , args=(combination_model, ['v0'], params, 2, driverparams), bounds=[(2., 500.)])
-		solution = sp.optimize.minimize(cost_wrapper, [30.] , args=(maximise_displacement, ['v0'], params, i, driverparams), bounds=[(30., 300.)])
+		solution = sp.optimize.minimize(cost_wrapper, [10.] , args=(maximise_displacement, ['s0'], params, i, driverparams, past), bounds=[(.02, 20.)])
 
 		print solution.x
