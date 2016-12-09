@@ -261,10 +261,14 @@ def run_hdm_simulation(params, driveridx, driverparams, past):
 
 
 # define a wrapper function to determine what cost is being calculated
-def cost_wrapper(optimize_params, cost_func, optimize_variables, params, driveridx, driverparams, past):
-	for var, param in zip(optimize_variables, optimize_params):
-		driverparams[var] = param
-
+# def cost_wrapper(optimize_params, cost_func, optimize_variables, params, driveridx, driverparams, past):
+def cost_wrapper(z, *costparams):
+	s0, T = z
+	cost_func, params, driveridx, driverparams, past = costparams
+	# for var, param in zip(optimize_variables, optimize_params):
+	# 	driverparams[var] = param
+	driverparams['s0'] = s0
+	driverparams['T'] = T
 	# simulation_result = run_idm_simulation(params, driveridx, driverparams)
 	simulation_result = run_hdm_simulation(params, driveridx, driverparams, past)
 
@@ -279,6 +283,7 @@ def cost_wrapper(optimize_params, cost_func, optimize_variables, params, driveri
 	c = cost_func(displacement, velocity, acceleration, params, driveridx)
 	# pdb.set_trace()
 	if sum(sum(np.isnan(np.array(x_v_dash))))>0:
+		print ('nan')
 		c = inf
 	return c
 #
@@ -344,16 +349,16 @@ if __name__ == '__main__':
 	params['delta'] = 4.0 # Acceleration exponent
 	params['s0'] = 10.0 # minimum gap (in m)
 	params['end_of_track'] = 800 # in m
-	params['t_steps'] = 10000 # number of timesteps
+	params['t_steps'] = 100 # number of timesteps
 	params['t_start'] = 0.0
 	params['n_cars'] = 10 # number of vehicles
-	params['total_time'] = 3000 # total time (in s)
+	params['total_time'] = 30 # total time (in s)
 	params['c'] = 0.99 # correction factor
 	params['t_step'] = (params['total_time'] - params['t_start'])/params['t_steps']
 	params['Tr'] = .6 # Reaction time
 	params['Vs'] = 0.1 # Variation coefficient of gap estimation error
 	params['sigma_r'] = 0.01 # estimation error for the inverse TTC
-	params['sigma_a']= 1.  # magnitude of acceleration noise
+	params['sigma_a']= .01  # magnitude of acceleration noise
 	params['tau_tilde'] = 20.0 # persistence time of estimation errors (in s)
 	params['tau_a_tilde'] =  1.0 # persistence time of acceleration noise (in s)
 	v0 = params['v0']
@@ -388,7 +393,7 @@ if __name__ == '__main__':
 	past['past_delta_v_est_s'] = deque(maxlen=params['j']+2)
 	past['past_dvdt'] = deque(maxlen=params['j']+2)
 	driverparams = copy.deepcopy(params)
-	driverparams['s0'] = .1
+	# driverparams['s0'] = .1
 
 	# y_s = run_idm_simulation(params, 1, driverparams)
 	# fig, axes = plt.subplots(1,2, figsize=(16,8))
@@ -409,8 +414,11 @@ if __name__ == '__main__':
 	# # plt.close()
 	# plt.show()
 
-	for i in range(1,9):
+	for i in range(3,9):
+		costparams = (maximise_displacement, params, i, driverparams, past)
 	# solution = sp.optimize.minimize(cost_wrapper, [5.] , args=(combination_model, ['v0'], params, 2, driverparams), bounds=[(2., 500.)])
-		solution = sp.optimize.minimize(cost_wrapper, [10.] , args=(maximise_displacement, ['s0'], params, i, driverparams, past), bounds=[(.02, 20.)])
+		# solution = sp.optimize.fmin(cost_wrapper, [3.] , args=(maximise_displacement, ['s0'], params, i, driverparams, past), maxiter=10)
+		rranges = (slice(.2,5.,.25), slice(.2,5.,.25))
+		solution = sp.optimize.brute(cost_wrapper, rranges, args=costparams)
 
-		print solution.x
+		print solution
