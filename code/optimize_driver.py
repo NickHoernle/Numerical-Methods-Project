@@ -261,14 +261,14 @@ def run_hdm_simulation(params, driveridx, driverparams, past):
 
 
 # define a wrapper function to determine what cost is being calculated
-# def cost_wrapper(optimize_params, cost_func, optimize_variables, params, driveridx, driverparams, past):
-def cost_wrapper(z, *costparams):
-	s0, T = z
-	cost_func, params, driveridx, driverparams, past = costparams
-	# for var, param in zip(optimize_variables, optimize_params):
-	# 	driverparams[var] = param
-	driverparams['s0'] = s0
-	driverparams['T'] = T
+def cost_wrapper(optimize_params, cost_func, optimize_variables, params, driveridx, driverparams, past):
+# def cost_wrapper(z, *costparams):
+	# s0, T = z
+	# cost_func, params, driveridx, driverparams, past = costparams
+	for var, param in zip(optimize_variables, optimize_params):
+		driverparams[var] = param
+	# driverparams['s0'] = s0
+	# driverparams['T'] = T
 	# simulation_result = run_idm_simulation(params, driveridx, driverparams)
 	simulation_result = run_hdm_simulation(params, driveridx, driverparams, past)
 
@@ -284,7 +284,7 @@ def cost_wrapper(z, *costparams):
 	# pdb.set_trace()
 	if sum(sum(np.isnan(np.array(x_v_dash))))>0:
 		print ('nan')
-		c = inf
+		c = np.inf
 	return c
 #
 # # Define the cost functions:
@@ -294,7 +294,7 @@ def cost_wrapper(z, *costparams):
 # # Note: Minimising the travel time is the same as maximising the
 # # displacement across the time interval
 def maximise_displacement(displacement, velocity, acceleration, params,driveridx):
-	return 1-displacement[driveridx,-1]
+	return displacement[driveridx,-1], np.sum(displacement[:,-1]/params['n_cars'])
 #
 # # Cost Function 2
 # # Maximizing the driving comfort (minimise discomfort) -> Page 419
@@ -349,10 +349,10 @@ if __name__ == '__main__':
 	params['delta'] = 4.0 # Acceleration exponent
 	params['s0'] = 10.0 # minimum gap (in m)
 	params['end_of_track'] = 800 # in m
-	params['t_steps'] = 100 # number of timesteps
+	params['t_steps'] = 2000 # number of timesteps
 	params['t_start'] = 0.0
 	params['n_cars'] = 10 # number of vehicles
-	params['total_time'] = 30 # total time (in s)
+	params['total_time'] = 600 # total time (in s)
 	params['c'] = 0.99 # correction factor
 	params['t_step'] = (params['total_time'] - params['t_start'])/params['t_steps']
 	params['Tr'] = .6 # Reaction time
@@ -415,10 +415,13 @@ if __name__ == '__main__':
 	# plt.show()
 
 	for i in range(3,9):
-		costparams = (maximise_displacement, params, i, driverparams, past)
-	# solution = sp.optimize.minimize(cost_wrapper, [5.] , args=(combination_model, ['v0'], params, 2, driverparams), bounds=[(2., 500.)])
-		# solution = sp.optimize.fmin(cost_wrapper, [3.] , args=(maximise_displacement, ['s0'], params, i, driverparams, past), maxiter=10)
-		rranges = (slice(.2,5.,.25), slice(.2,5.,.25))
-		solution = sp.optimize.brute(cost_wrapper, rranges, args=costparams)
-
-		print solution
+		for j in np.linspace(.1, 2., 20):
+			cost = cost_wrapper([j], maximise_displacement, ['s0'], params, i, driverparams, past)
+			print j, cost
+	# 	costparams = (maximise_displacement, params, i, driverparams, past)
+	# # solution = sp.optimize.minimize(cost_wrapper, [5.] , args=(combination_model, ['v0'], params, 2, driverparams), bounds=[(2., 500.)])
+	# 	# solution = sp.optimize.fmin(cost_wrapper, [3.] , args=(maximise_displacement, ['s0'], params, i, driverparams, past), maxiter=10)
+	# 	rranges = (slice(.2,5.,.25), slice(.2,5.,.25))
+	# 	solution = sp.optimize.brute(cost_wrapper, rranges, args=costparams)
+	#
+	# 	print solution
