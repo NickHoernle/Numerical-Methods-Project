@@ -283,8 +283,11 @@ def cost_wrapper(optimize_params, cost_func, optimize_variables, params, driveri
 	c = cost_func(displacement, velocity, acceleration, params, driveridx)
 	# pdb.set_trace()
 	if sum(sum(np.isnan(np.array(x_v_dash))))>0:
-		print ('nan')
-		c = np.inf
+		if np.isnan(x_v_dash[-1][driveridx])==False:
+			print ('nan')
+			c = displacement[driveridx,-1], np.inf
+		else:
+			c = np.inf, np.inf
 	return c
 #
 # # Define the cost functions:
@@ -294,7 +297,7 @@ def cost_wrapper(optimize_params, cost_func, optimize_variables, params, driveri
 # # Note: Minimising the travel time is the same as maximising the
 # # displacement across the time interval
 def maximise_displacement(displacement, velocity, acceleration, params,driveridx):
-	return displacement[driveridx,-1], np.sum(displacement[:,-1]/params['n_cars'])
+	return displacement[driveridx,-1], np.sum(np.std(velocity, axis=0))
 #
 # # Cost Function 2
 # # Maximizing the driving comfort (minimise discomfort) -> Page 419
@@ -351,14 +354,14 @@ if __name__ == '__main__':
 	params['end_of_track'] = 800 # in m
 	params['t_steps'] = 2000 # number of timesteps
 	params['t_start'] = 0.0
-	params['n_cars'] = 10 # number of vehicles
+	params['n_cars'] = 50 # number of vehicles
 	params['total_time'] = 600 # total time (in s)
 	params['c'] = 0.99 # correction factor
 	params['t_step'] = (params['total_time'] - params['t_start'])/params['t_steps']
 	params['Tr'] = .6 # Reaction time
 	params['Vs'] = 0.1 # Variation coefficient of gap estimation error
 	params['sigma_r'] = 0.01 # estimation error for the inverse TTC
-	params['sigma_a']= .01  # magnitude of acceleration noise
+	params['sigma_a']= .1  # magnitude of acceleration noise
 	params['tau_tilde'] = 20.0 # persistence time of estimation errors (in s)
 	params['tau_a_tilde'] =  1.0 # persistence time of acceleration noise (in s)
 	v0 = params['v0']
