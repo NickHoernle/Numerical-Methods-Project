@@ -141,7 +141,7 @@ def x_v_dash2_driver_human(x_v, t,params,driveridx, driverparams,past):
 	# for vehicle i, s = x_vec[i-1] - x_vec[i]
 	s = np.roll(x_vec,1) - x_vec
 	# put s for car zero within the bounds of the track
-	s[0] += end_of_track
+	s[0] = 1000
 	# Compute index of this timestep
 	index = int(math.floor(t/t_step)) if math.floor(t/t_step) < t_steps else t_steps-1
 	# compute estimate of gap
@@ -179,20 +179,40 @@ def x_v_dash2_driver_human(x_v, t,params,driveridx, driverparams,past):
 		dvdt = np.zeros(v.shape)
 		# calculate the acceleration of each vehicle one at a time
 		# As written in Eq 12.20 of the textbook
-		for alpha in xrange(n_cars):
+		dvdt[0] = free_term[0]
+		for alpha in xrange(1,n_cars):
 			if alpha == driveridx:
 				free_term_alpha = free_term[alpha]
 				int_term = 0.0
 				v_alpha_prog = np.array([v_prog[alpha]])
-				for beta in xrange(alpha-n_a,alpha):
-					# we want to sum from beta+1 to alpha
-					# precompute these indices to avoid slicing issues
-					sum_idxs = np.arange(beta+1,alpha+1)
-					#print sum_idxs
-					s_alpha_beta_prog = np.array([np.sum(s_prog[sum_idxs])])
-					#print s_alpha_beta_prog
-					v_beta_prog = np.array([v_l_prog[beta]])
-					int_term += a_IDM_int(v_alpha_prog,s_alpha_beta_prog,v_alpha_prog-v_beta_prog,driverparams)
+				if alpha==1:
+					for beta in xrange(0,1):
+						sum_idxs = np.arange(beta+1,alpha+1)
+						#print sum_idxs
+						s_alpha_beta_prog = np.array([np.sum(s_prog[sum_idxs])])
+						#print s_alpha_beta_prog
+						v_beta_prog = np.array([v_l_prog[beta]])
+						int_term += a_IDM_int(v_alpha_prog,s_alpha_beta_prog,v_alpha_prog-v_beta_prog,driverparams)
+				elif alpha==2:
+					for beta in xrange(0,2):
+						for beta in xrange(0,1):
+							sum_idxs = np.arange(beta+1,alpha+1)
+							#print sum_idxs
+							s_alpha_beta_prog = np.array([np.sum(s_prog[sum_idxs])])
+							#print s_alpha_beta_prog
+							v_beta_prog = np.array([v_l_prog[beta]])
+							int_term += a_IDM_int(v_alpha_prog,s_alpha_beta_prog,v_alpha_prog-v_beta_prog,driverparams)
+				else:
+					for beta in xrange(alpha-n_a,alpha):
+
+						# we want to sum from beta+1 to alpha
+						# precompute these indices to avoid slicing issues
+						sum_idxs = np.arange(beta+1,alpha+1)
+						#print sum_idxs
+						s_alpha_beta_prog = np.array([np.sum(s_prog[sum_idxs])])
+						#print s_alpha_beta_prog
+						v_beta_prog = np.array([v_l_prog[beta]])
+						int_term += a_IDM_int(v_alpha_prog,s_alpha_beta_prog,v_alpha_prog-v_beta_prog,driverparams)
 				dvdt[alpha] = free_term_alpha + c_idm*int_term
 			else:
 				free_term_alpha = free_term[alpha]
@@ -208,6 +228,7 @@ def x_v_dash2_driver_human(x_v, t,params,driveridx, driverparams,past):
 					v_beta_prog = np.array([v_l_prog[beta]])
 					int_term += a_IDM_int(v_alpha_prog,s_alpha_beta_prog,v_alpha_prog-v_beta_prog,params)
 				dvdt[alpha] = free_term_alpha + c_idm*int_term
+		# pdb.set_trace()
 	else:
 		# Compute acceleration (with estimation error)
 		dvdt = a_IDM(v,s_est,delta_v_est,params) + sigma_a*w_a[:, index]
@@ -281,6 +302,23 @@ def cost_wrapper(optimize_params, cost_func, optimize_variables, params, driveri
 #
 # 	# We should be able to write cost functions based on these three variables
 	c = cost_func(displacement, velocity, acceleration, params, driveridx)
+	y_s = simulation_result
+	fig, axes = plt.subplots(1,2, figsize=(16,8))
+	# Plot positions over time
+	ts = np.linspace(0,params['total_time'],params['t_steps'])
+	for car in xrange(n_cars):
+		axes[0].plot(ts, y_s[:,car])
+	# Plot velocity over time
+	for car in xrange(n_cars):
+		axes[1].plot(ts, y_s[:,car+n_cars])
+	axes[0].set_xlabel('Time')
+	axes[0].set_ylabel('Displacement')
+	axes[1].set_xlabel('Time')
+	axes[1].set_ylabel('Velocity')
+	plot_out_name = "../figures/displacement_and_velocity_plot_param{}.png".format(optimize_params[0])
+	plt.savefig(plot_out_name,
+			orientation='landscape',format='png',edgecolor='black')
+	plt.close()
 	# pdb.set_trace()
 	if sum(sum(np.isnan(np.array(x_v_dash))))>0:
 		if np.isnan(x_v_dash[-1][driveridx])==False:
@@ -297,7 +335,7 @@ def cost_wrapper(optimize_params, cost_func, optimize_variables, params, driveri
 # # Note: Minimising the travel time is the same as maximising the
 # # displacement across the time interval
 def maximise_displacement(displacement, velocity, acceleration, params,driveridx):
-	return displacement[driveridx,-1], np.sum(np.std(velocity, axis=0))
+	return displacement[driveridx,-1], np.average(displacement[:,-1]), np.average(np.std(velocity, axis=0))
 #
 # # Cost Function 2
 # # Maximizing the driving comfort (minimise discomfort) -> Page 419
@@ -333,6 +371,7 @@ def maximise_displacement(displacement, velocity, acceleration, params,driveridx
 
 if __name__ == '__main__':
 	## Parameters ##
+	np.random.seed(0)
 	params = dict()
 	params['v0'] = 50.0 # desired velocity (in m/s) of vehicles in free traffic
 	params['init_v'] = 5.0 # initial velocity
@@ -354,7 +393,7 @@ if __name__ == '__main__':
 	params['end_of_track'] = 800 # in m
 	params['t_steps'] = 2000 # number of timesteps
 	params['t_start'] = 0.0
-	params['n_cars'] = 50 # number of vehicles
+	params['n_cars'] = 30 # number of vehicles
 	params['total_time'] = 600 # total time (in s)
 	params['c'] = 0.99 # correction factor
 	params['t_step'] = (params['total_time'] - params['t_start'])/params['t_steps']
@@ -398,27 +437,8 @@ if __name__ == '__main__':
 	driverparams = copy.deepcopy(params)
 	# driverparams['s0'] = .1
 
-	# y_s = run_idm_simulation(params, 1, driverparams)
-	# fig, axes = plt.subplots(1,2, figsize=(16,8))
-	# # Plot positions over time
-	# ts = np.linspace(0,params['total_time'],params['t_steps'])
-	# for car in xrange(n_cars):
-	# 	axes[0].plot(ts, y_s[:,car])
-	# # Plot velocity over time
-	# for car in xrange(n_cars):
-	# 	axes[1].plot(ts, y_s[:,car+n_cars])
-	# axes[0].set_xlabel('Time')
-	# axes[0].set_ylabel('Displacement')
-	# axes[1].set_xlabel('Time')
-	# axes[1].set_ylabel('Velocity')
-	# # plot_out_name = "../figures/displacement_and_velocity_plot_model{}.png".format(params['IDM_model_num'])
-	# # plt.savefig(plot_out_name,
-	# # 		orientation='landscape',format='png',edgecolor='black')
-	# # plt.close()
-	# plt.show()
-
 	for i in range(3,9):
-		for j in np.linspace(.1, 2., 20):
+		for j in np.linspace(3.,.2, 20):
 			cost = cost_wrapper([j], maximise_displacement, ['s0'], params, i, driverparams, past)
 			print j, cost
 	# 	costparams = (maximise_displacement, params, i, driverparams, past)
