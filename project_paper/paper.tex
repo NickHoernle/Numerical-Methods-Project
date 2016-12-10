@@ -128,9 +128,10 @@ In this section, we model streams of semi-autonomous vehicles that display the f
   \fbox{\includegraphics[width=0.95\textwidth]{../figures/system_ppt_fig}}
   \caption{Snapshot of two cars in a system modeled using a car-following model.  The leading car with respect to vehicle $\alpha$  is referred to as vehicle $l=\alpha-1$.  Note that vehicles are represented as particles, and therefore, the vehicles themselves have negligible length.}
 \end{figure}
-The IDM is a simple, accident-free model that can model traffic systems under all realistic traffic conditions.  The acceleration function, shown in Eq (1), of a particular vehicle $\alpha$ is a function the current gap between itself and the leading vehicle ($s_\alpha$), the desired speed $v_0$, and the speed of the vehicle leading vehicle $v_l$.  The first term in Eq (1) is the \textit{free acceleration}\---the acceleration that a vehicle would take if on an open road, without considerations of desired speed or gap.  The second term in Eq (1) is the effect on the acceleration of the vehicle approaching its desired speed.  The third term in Eq(1) is the effect on the acceleration of relative difference between the desired gap distance $s^*(v_\alpha,\Delta v_\alpha)$ and the current gap distance.  The desired gap distance given by Eq (4) the sum of two terms the steady state desired safe distance $s_0+v_\alpha T$ and a dynamical term $\frac{v_\alpha \Delta v_\alpha}{2 \sqrt{ab}}$ representing the intelligent vehicle's braking strategy.
+\paragraph{}
+The IDM is a simple, accident-free model that can model traffic systems under all realistic traffic conditions.  The acceleration function, shown in Eq (1), of a particular vehicle $\alpha$ is a function the current gap between itself and the leading vehicle ($s_\alpha$), the desired speed $v_0$, and the speed of the vehicle leading vehicle $v_l$.  
 
-\begin{mymathbox}[title=Parameters, colframe=blue!30!black]
+\begin{mymathbox}[title=IDM Parameters, colframe=blue!30!black]
   \begin{itemize}
     \item $a$: maximum acceleration
     \item $b$: maximum comfortable deceleration
@@ -142,36 +143,54 @@ The IDM is a simple, accident-free model that can model traffic systems under al
 \end{mymathbox}
 
 \begin{mymathbox}[ams gather, title=IDM Governing Equations, colframe=blue!30!black]
-  \dot{v}_\alpha = a \left[1 - \left(\frac{v_\alpha}{v_0}\right)^{\delta} - \left(\frac{s^*(v_\alpha,\Delta v_\alpha)}{s_\alpha}\right)^{2}\right]\\
-  s_\alpha = x_{\alpha-1}-x_\alpha=x_{l}-x_\alpha\\
-  \Delta v_\alpha =v_\alpha-v_{\alpha-1}=v_\alpha-v_l\\
-  s^*(v_\alpha, \Delta v_\alpha) = s_0 + \max\left(0, v_\alpha T + \frac{v_\alpha \Delta v_\alpha}{2 \sqrt{ab}} \right)
+  \begin{align}
+  \dot{v}_\alpha &= a \left[1 - \left(\frac{v_\alpha}{v_0}\right)^{\delta} - \left(\frac{s^*(v_\alpha,\Delta v_\alpha)}{s_\alpha}\right)^{2}\right]\\
+  s_\alpha &= x_{\alpha-1}-x_\alpha=x_{l}-x_\alpha\\
+  \Delta v_\alpha &=v_\alpha-v_{\alpha-1}=v_\alpha-v_l\\
+  s^*(v_\alpha, \Delta v_\alpha) &= s_0 + \max\left(0, v_\alpha T + \frac{v_\alpha \Delta v_\alpha}{2 \sqrt{ab}} \right)
+  \end{align}
 \end{mymathbox}
+\paragraph{}
+The first term in Eq (1) is the \textit{free acceleration}\---the acceleration that a vehicle would take if on an open road, without considerations of desired speed or gap.  The second term in Eq (1) is the effect on the acceleration of the vehicle approaching its desired speed.  The third term in Eq(1) is the effect on the acceleration of relative difference between the desired gap distance $s^*(v_\alpha,\Delta v_\alpha)$ and the current gap distance.  The desired gap distance given by Eq (4) the sum of two terms the steady state desired safe distance $s_0+v_\alpha T$ and a dynamical term $\frac{v_\alpha \Delta v_\alpha}{2 \sqrt{ab}}$ representing the intelligent vehicle's braking strategy.
 
 \subsubsection{Improved Intelligent Driver Model (IIDM)}
-
+\paragraph{}
+The Improved Intelligent Driver Model is an IDM model with an improved acceleration function that aims to correct three unrealistic qualities of the IDM:
+\begin{enumerate}
+  \item 
+  If a vehicle exceeds the desired speed, the IDM acceleration function will return a very large negative acceleration.  This is unrealistic since drivers on a highway tend to oscillate around their desired speed.  
+  \item
+  If a vehicle is close to the desired speed, the desired gap $s^*(v_\alpha,\Delta v_\alpha)$ becomes much greater than $s_0 + v_\alpha T$.  This causes the gaps between vehicles to be unrealistically large and can preclude vehicles from reaching the desired velocities.
+  \item
+  If the actual gap is less than the desired gap distance (e.g. when another vehicle merges into the particular vehicle's lane), then the acceleration function will return an excessively large negative acceleration.  This unrealistic as drivers typically brake lightly to increase the gap.
+\end{enumerate}
+\begin{mymathbox}[ams gather, title=IIDM Governing Functions, colframe=blue!30!black]
+  \begin{align}
+  \frac{dv_\alpha}{dt}\Bigr|_{v_\alpha\le v_0}&= 
+  \begin{cases}
+    a (1-z^2) & z_\alpha \ge 1\\
+   a_{\text{free},\alpha}(1 - z_\alpha^{(2a)/a_{\text{free},\alpha}})& \text{otherwise}
+  \end{cases}
+  \\
+  \frac{dv_\alpha}{dt}\Bigr|_{v_\alpha> v_0}&= 
+  \begin{cases}
+    a_{\text{free},\alpha} + a (1-z_\alpha^2) & z_\alpha \ge 1\\
+    a_{\text{free},\alpha} & \text{otherwise}
+  \end{cases}\\
+  a_{\text{free},\alpha}(v_\alpha)&= \begin{cases}
+  a \left[ 1 - (\frac{v_\alpha}{v_0})^\delta \right] & v_\alpha \le v_0\\
+  -b \left[ 1 - (\frac{v_0}{v_\alpha})^{a\delta/b} \right] & v_\alpha > v_0
+  \end{cases}\\
+  z_\alpha&= \frac{s^*(v_\alpha, \Delta v_\alpha)}{s_\alpha}
+  \end{align}
+\end{mymathbox}
+\paragraph{}
+The IIDM governing equations seek to improve the unrealistic qualities of the IDM model. Eq (8) is the free acceleration equation, which limits the deceleration's magnitude when $v_\alpha>v_0$ to be at most b. To improve the acceleration function near the desired speed, we use $z_\alpha$ to indicate whether the desired gap distance is greater than the current gap distance or not.  When $v_\alpha < v_0$, the IIDM's acceleration function (Eq (5) and Eq (6)) ensures that the actual gap is no larger than the minimum safe gap $s_\alpha = s_0+vT$.  To maintain the intelligent and comfortable brake method of the IDM, the improved acceleration function only changes when the actual gap is near the desired gap or when the actual velocity is greater than the desired velocity.
 \subsubsection{Adaptive Cruise Control Model (ACC)}
 
 
 
 \paragraph{}
-$$
-a_{free}(v)= \begin{cases}
-	a \left[ 1 - (\frac{v}{v_0})^\delta \right] & v \le v_0\\
-	-b \left[ 1 - (\frac{v_0}{v})^{a\delta/b} \right] & v > v_0
-\end{cases}
-$$
-
-$$\frac{dv}{dt}\Bigr|_{v\le v_0}= \begin{cases}
-a (1-z^2) & z = \frac{s*(v, \Delta v}{s} \ge 1\\
-a_{free}(1 - z^{(2a)/a_{free}})& otherwise
-\end{cases}$$
-
-$$\frac{dv}{dt}\Bigr|_{v> v_0}= \begin{cases}
-a_{free} + a (1-z^2) & z(v, \Delta v) \ge 1\\
-a_{free} & otherwise
-\end{cases}$$
-
 $$a_{CAH}(s,v,v_l, \dot{v}_l)= \begin{cases}
 \frac{v^2\tilde{a}_l}{v_l^2 - 2 \tilde(a)_l} & v_l(v-v_l) \le -2s\tilde{a}_l\\
 \tilde{a}_l - \frac{(v-v_l)^2 \Theta (v-v_l)}{2s} & otherwise
