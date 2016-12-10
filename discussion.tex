@@ -58,6 +58,14 @@ $$\tilde{a}_l(\dot(v)_l) = min(\dot{v}_l, a)$$
 
 $$a_{ACC}= \begin{cases}a_{IIDM} & a_{IIDM} \ge a_{CAH}\\(1-c)a_{IIDM} + c\left[a_{CAH} + b tanh(\frac{a_{IIDM}-a_{CAH}}{b}) \right] & otherwise\end{cases}$$
 
+$$\dot{v}(t) = a_{mic}\left[s(t-T_r), v(t-T_r), v_l(t-T_r) \right]$$
+
+$$u(t-Tr) = ru_{i-j-1} + (1-r)u_{i-j},  \, \, j = int\left(\frac{T_r}{\Delta t} \right), \, \, r = \frac{T_r}{\Delta t} - j$$
+
+$$ln s^{est} - ln s = V_s w_s(t) $$
+
+$$v^{est} - v_l = -s \sigma_r w_l(t)$$
+
 %This numerical analysis can be contrasted to the analytical solution that was presented in (**another section 2?**).\par
 %A car`s speed is governed by the laws of motion:
 %\begin{equation}
