@@ -20,6 +20,7 @@
 
 % for figs
 \usepackage{graphicx}
+\usepackage{float}
 
 % The preamble here sets up a lot of new/revised commands and
 % environments.  It's annoying, but please do *not* try to strip these
@@ -205,9 +206,9 @@ a_{IIDM} & a_{IIDM} \ge a_{CAH}\\
 
 $$\dot{v}(t) = a_{mic}\left[s(t-T_r), v(t-T_r), v_l(t-T_r) \right]$$
 
-$$u(t-Tr) = ru_{i-j-1} + (1-r)u_{i-j},  \, \, j = int\left(\frac{T_r}{\Delta t} \right), \, \, r = \frac{T_r}{\Delta t} - j$$
+$$u(t-Tr) = ru_{i-j-1} + (1-r)u_{i-j},  \, \, j = \textrm{int}\left(\frac{T_r}{\Delta t} \right), \, \, r = \frac{T_r}{\Delta t} - j$$
 
-$$ln s^{est} - ln s = V_s w_s(t) $$
+$$\textrm{ln} s^{est} - \textrm{ln} s = V_s w_s(t) $$
 
 $$v^{est} - v_l = -s \sigma_r w_l(t)$$
 
@@ -244,56 +245,100 @@ $$v^{est} - v_l = -s \sigma_r w_l(t)$$
 
 \paragraph{}To generate numerical simulations of Traffic Systems, we first consider the case of 50 cars on a circular track. We explored scenarios of all IDM cars and all HDM cars. Under these conditions, we see the IDM models generate more `phantom` traffic waves than the HDM models, especially for larger numbers of HDM car lookahead. This is because the human drivers tend to appear more conservative in a situation like this, with no external perturbations, as the multi-car lookahead prevents them from getting overly close to the car directly in front of them.
 
-% \begin{figure}[H]
-% \centering
-% \includegraphics[keepaspectratio=true,scale=0.6]{problem3d}
-% \caption{Plot of temperature cross section in pipe at various time-steps of simulation}\label{visina8}
-% \end{figure}
-
-% \begin{figure}[H]
-% \centering
-% \includegraphics[keepaspectratio=true,scale=0.6]{problem3d}
-% \caption{Plot of temperature cross section in pipe at various time-steps of simulation}\label{visina8}
-% \end{figure}
-
 \paragraph{}We then moved on to simulations of a platoon of cars with some cars being controlled by IDM-type models (in particular, Adaptive Cruise Control) and some cars being controlled by multi-car lookahead HDM models. After allowing the models to run for some time to develop their natural spacing, we then perturbed the acceleration of the lead car, causing it to brake and then resume again. We then observe both the magnitude and length of the volatility of the velocities in the following cars after the event. We find that in general, as one would expect, a larger proportion of IDM-controlled vehicles results in a quicker dissipation of the perturbation as well as a lowered probability of a vehicle collision.\\
-\textbf{RESULTS HERE}
+\begin{figure}[H]
+  \centering
+  \fbox{\includegraphics[width=0.95\textwidth]{maximise_distance.png}}
+  \caption{System of IDM cars on a circular track optimizing for maximum distance traveled. The more aggressive driving of the cars results in wave formation.}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \fbox{\includegraphics[width=0.95\textwidth]{optimise_comfort.png}}
+  \caption{System of IDM cars on a circular track optimizing for maximum 'comfort' (minimum jerk). As one might expect, they choose to go rather slowly and thereby achieve a very stable velocity.}
+\end{figure}
 
 \section{Stability and Error Comparison of a Variety of Numerical Integration Schemes}
 Because there is no analytical solution given for our highly-nonlinear problem, to analyze the error of our numerical integration schemes, we compared to the python \texttt{odeint} solver function. For large enough time steps, this shows us error decreasing on a log scale for each of our higher order methods. However, for small time steps, the `error` for 4th and 5th order methods converges, as the \texttt{odeint} solver presumably decides that 4th order is sufficiently accurate at these time steps and stops using higher order methods.\\
-\textbf{RESULTS HERE}
-\paragraph{}For our purposes, we desired to use higher order methods such that we could use larger timesteps and hopefully decrease running time of our programs while still maintaining stability in the differential equation systems. To display the effectiveness of these higher order methods, we ran one of our simple models for a variety of time steps over the same total time with the different solvers and noted the number of time steps at which each method stabilized.\\
-\textbf{RESULTS HERE}
+\begin{figure}
+  \centering
+  \fbox{\includegraphics[width=0.95\textwidth]{error.png}}
+  \caption{Error to odeint decreases with accuracy of finite differencing methods.}
+\end{figure}
+\paragraph{}For our purposes, we desired to use higher order methods such that we could use larger timesteps and hopefully decrease running time of our programs while still maintaining stability in the differential equation systems. To display the effectiveness of these higher order methods, we ran one of our simple models for a variety of time steps over the same total time with the different solvers and noted the number of time steps at which each method stabilized. We notice here that we don't see an additional benefit from using RK5, which in this case we suspect is because the extremely complicated coefficients are contributing to existing numerical overflow issues.\\
+\begin{table}[H]
+\centering
+\caption{Timesteps for Stability with T=500s}
+\label{my-label}
+\begin{tabular}{lc}
+ Method &  Minimum Timesteps for Stability\\ \hline
+ Heun's Method & 325 \\
+ Runge-Kutta 3 &  275\\
+ Runge-Kutta 4 &  250\\
+ Runge-Kutta 5 & 250
+\end{tabular}
+\end{table}
 
 \section{String Stability of Traffic Systems to Perturbation}
 
-%as a function of the reaction time Tr and the attention span ?t depends strongly on
-%the number of considered vehicles. When considering na = 5 leaders, the critical
-%effective reaction time Tr + ?t/2 at the stability limit is about twice as large as
-%the corresponding critical value without multi-anticipation (na = 1). Particularly,
-%traffic can be stable even if the reaction time exceeds the average time headway. This
-%agrees with everyday observations but cannot be realized in simulations without
-%multi-anticipation. There are limits, however: Anticipating more than five vehicles
-%ahead will change the dynamics insignificantly
+The concept of string stability refers to whether a perturbation to the beginning of the system will result in a wave that dissipates or is enhanced as it propagates through the system. As we have seen in previous experiments that the IDM models are excellent for adjusting to and dissipating traffic perturbations, we expect them to be string stable and indeed they are.
+
+\begin{figure}[H]
+  \centering
+  \fbox{\includegraphics[width=0.95\textwidth]{displacement_and_velocity_plot_model0_ss.png}}
+  \caption{Plot of cars 1,2,3,6,10, and 20 for IDM. String stable.}
+\end{figure}
+
+For HDM models, the presence or lack thereof of string stability depends on a number of parameters: number of leading cars being considered, time step ($\Delta t$), and reaction time ($T_r$). In general, string stability increases with number of leading cars being considered, although the marginal contribution of each car decreases to the point where there is not much additional benefit beyond 5 cars. String stability is inversely related to time step and reaction time, although reaction time has a greater effect. Below, we show two plots for parameters where the HDM system is string stable and string unstable.
+
+\begin{figure}[H]
+  \centering
+  \fbox{\includegraphics[width=0.95\textwidth]{HDM_anticipate_2_ss_1000_unstable.png}}
+  \caption{Plot of cars 1,2,3,6,10, and 20 for HDM with two car lookahead. We see that for parameters $T_r$ = .6 and $\Delta t$ = .2, the system is string unstable, as evidenced by the large wave in car 20's velocity.}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \fbox{\includegraphics[width=0.95\textwidth]{HDM_anticipate_13002_ss_stable.png}}
+  \caption{Plot of cars 1,2,3,6,10, and 20 with two car lookahead. We see that for parameters $T_r$ = .2 and $\Delta t$ = .15, the system is string stable.}
+\end{figure}
 
 \section{Optimization of Traffic Systems}
 \paragraph{}We set up a number of optimization programs to attempt to search for the optimal values of some of the many parameters for the system as a whole and for individual drivers for a number of cost functions, including maximizing displacement and maximizing comfort (minimizing jerk). The initial trials for these systems were run on IDM models, and the results are largely what one would suspect. When attempting to maximize total displacement, the cars drive quickly and close together, resulting in the creation of traffic waves in the system. When attempting to minimize jerk, the cars drive much more conservatively, as one would expect, never coming within the range of another car that would cause them to change acceleration. \\
 \textbf{RESULTS HERE}
-\paragraph{}We then attempted to optimize behavior for a single driver and were interested to see what implications this would have for the system as a whole. However, unsurprisingly, the following behaviors in the IDM are such that a single driver can tailgate and maximize target speed basically as much as we will allow without ever disrupting the rest of the system. Even when adding some stochasticity to the lead car, we were unable to see the rest of the system suffer from traffic waves due to the behavior of the second car, because that behavior would simply be quickly dissipated by the third car. In fact, it seems to be true generally of these systems that unless the aggressive driving behavior of a car causes other cars to collide behind it, the greater distance achieved by one car inevitably results in other cars also achieving a greater distance/average velocity. However, this is likely to occur with much greater volatility in the velocity of the cars, i.e. a less pleasant ride. Then, to quantify how the erratic driving of a single car may result in penalties to the system as a whole but not to that car, we must analyze the cost to the other cars in terms of the volatility of their ride speed and possible collisions.\\
-\textbf{RESULTS HERE}
+\paragraph{}We then attempted to optimize behavior for a single driver and were interested to see what implications this would have for the system as a whole. However, the following behaviors in the IDM are such that a single driver can tailgate and maximize target speed basically as much as we will allow without ever disrupting the rest of the system. Even when adding some stochasticity to the lead car, we were unable to see the rest of the system suffer from traffic waves due to the behavior of the second car, because that behavior would simply be quickly dissipated by the third car. In fact, it seems to be true generally of these systems that unless the aggressive driving behavior of a car causes other cars to collide behind it, the greater distance achieved by one car inevitably results in other cars also achieving a greater distance/average velocity. \\
+
 \paragraph{}Next, we attempted to replicate these experiments with the more complicated Human Driver Model. However, due to the highly piecewise nature of the functions we are attempting to optimize over, we were unable to use traditional minimization solvers. Instead, we discretized the parameter space we were interested in exploring and searched for the set of parameters which would minimize our target cost function. \\
-\textbf{RESULTS HERE}
+Again, we find that in general maximizing displacement for a single car leads to greater displacement for the rest of the system unless the driving behavior is so aggressive that it results in a crash. Given that we have seen that the Human Driver Model is more likely to propagate perturbations, we had expected that there might be in this model a penalty to other cars in greater volatility of velocity, i.e. a less pleasant ride, but this effect was also not observed in the data. We conclude that the model is largely insensitive to individual parameters in this context and that the structure of the model tends not to penalize aggressive driving unless a collision results.\\
+\begin{figure}[H]
+  \centering
+  \fbox{\includegraphics[width=0.95\textwidth]{optimize_s0_total.png}}
+  \caption{Changing Safe Following Distance: Changes are minimal but overall distance increases for both the car in question and the system of cars with smaller distance.}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \fbox{\includegraphics[width=0.95\textwidth]{optimize_s0.png}}
+  \caption{Variation in Distance Traveled when Changing Safe Following Distance From Initial Value of 3.0}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \fbox{\includegraphics[width=0.95\textwidth]{optimize_t.png}}
+  \caption{Changing Safe Following Time: Changes are minimal but overall distance increases for both the car in question and the system of cars with smaller.}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \fbox{\includegraphics[width=0.95\textwidth]{optimize_t_change.png}}
+  \caption{Variation in Distance Traveled when Changing Safe Following Time From Initial Value of 1.0}
+\end{figure}
+
 \section{TODO}
+fuck this to do list, we've done enough. \\
 develop a cost function for emissions/energy usage and optimize over that \\
 can we find the parameters that will cause a phantom traffic jam?
 
-
-
-\section{Traffic Flow Simulation: Microscopic models}
-
-\section{Models and Methods}
-
-\section{Results}
 
 \section{Discussion}
 
