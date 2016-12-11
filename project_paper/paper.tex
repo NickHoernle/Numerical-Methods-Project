@@ -300,22 +300,47 @@ Assembling the various components of the HDM model, the HDM governing equation i
 
 \paragraph{}To generate numerical simulations of Traffic Systems, we first consider the case of 50 cars on a circular track. We explored scenarios of all IDM cars and all HDM cars. Under these conditions, we see the IDM models generate more `phantom` traffic waves than the HDM models, especially for larger numbers of HDM car lookahead. This is because the human drivers tend to appear more conservative in a situation like this, with no external perturbations, as the multi-car lookahead prevents them from getting overly close to the car directly in front of them.
 
-\paragraph{}We then moved on to simulations of a platoon of cars with some cars being controlled by IDM-type models (in particular, Adaptive Cruise Control) and some cars being controlled by multi-car lookahead HDM models. After allowing the models to run for some time to develop their natural spacing, we then perturbed the acceleration of the lead car, causing it to brake and then resume again. We then observe both the magnitude and length of the volatility of the velocities in the following cars after the event. We find that in general, as one would expect, a larger proportion of IDM-controlled vehicles results in a quicker dissipation of the perturbation as well as a lowered probability of a vehicle collision.\\
 \begin{figure}[H]
   \centering
-  \fbox{\includegraphics[width=0.95\textwidth]{maximise_distance.png}}
-  \caption{System of IDM cars on a circular track optimizing for maximum distance traveled. The more aggressive driving of the cars results in wave formation.}
+  \fbox{\includegraphics[width=0.95\textwidth]{displacement_and_velocity_plot_model0.pdf}}
+  \caption{System of 50 IDM-controlled cars on a circular track.}
 \end{figure}
 
 \begin{figure}[H]
   \centering
-  \fbox{\includegraphics[width=0.95\textwidth]{optimise_comfort.png}}
-  \caption{System of IDM cars on a circular track optimizing for maximum 'comfort' (minimum jerk). As one might expect, they choose to go rather slowly and thereby achieve a very stable velocity.}
+  \fbox{\includegraphics[width=0.95\textwidth]{displacement_and_velocity_plot_model2.pdf}}
+  \caption{System of 50 ACC-controlled cars on a circular track.}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \fbox{\includegraphics[width=0.95\textwidth]{HDM_anticipate_1.pdf}}
+  \caption{System of 50 HDM-controlled cars with one car-lookahead on a circular track.}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \fbox{\includegraphics[width=0.95\textwidth]{HDM_anticipate_5.pdf}}
+  \caption{System of 50 HDM-controlled cars with five car-lookahead on a circular track. Note the significant decrease in volatility of velocity.}
+\end{figure}
+
+\paragraph{}We then moved on to simulations of a platoon of cars with some cars being controlled by IDM-type models (in particular, Adaptive Cruise Control) and some cars being controlled by multi-car lookahead HDM models. After allowing the models to run for some time to develop their natural spacing, we then perturbed the acceleration of the lead car, causing it to brake and then resume again. We then observe both the magnitude and length of the volatility of the velocities in the following cars after the event. We find that in general, as one would expect, a larger proportion of IDM-controlled vehicles results in a quicker dissipation of the perturbation as well as a lowered probability of a vehicle collision.\\
+
+\begin{figure}[H]
+  \centering
+  \fbox{\includegraphics[width=0.95\textwidth]{blended_3_35_127pm.png}}
+  \caption{System with 35 \% IDM cars on a straight road with acceleration of first car perturbed. System maintains a high degree of volatility in velocity long after the initial perturbation.}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \fbox{\includegraphics[width=0.95\textwidth]{blended_3_90_127pm.png}}
+  \caption{System with 90 \% IDM cars on a straight road with acceleration of first car perturbed. System quickly dissipates the majority of the volatility in velocity.}
 \end{figure}
 
 \section{Stability and Error Comparison of a Variety of Numerical Integration Schemes}
 Because there is no analytical solution given for our highly-nonlinear problem, to analyze the error of our numerical integration schemes, we compared to the python \texttt{odeint} solver function. For large enough time steps, this shows us error decreasing on a log scale for each of our higher order methods. However, for small time steps, the `error` for 4th and 5th order methods converges, as the \texttt{odeint} solver presumably decides that 4th order is sufficiently accurate at these time steps and stops using higher order methods.\\
-\begin{figure}
+\begin{figure}[H]
   \centering
   \fbox{\includegraphics[width=0.95\textwidth]{error.png}}
   \caption{Error to odeint decreases with accuracy of finite differencing methods.}
@@ -360,7 +385,19 @@ For HDM models, the presence or lack thereof of string stability depends on a nu
 
 \section{Optimization of Traffic Systems}
 \paragraph{}We set up a number of optimization programs to attempt to search for the optimal values of some of the many parameters for the system as a whole and for individual drivers for a number of cost functions, including maximizing displacement and maximizing comfort (minimizing jerk). The initial trials for these systems were run on IDM models, and the results are largely what one would suspect. When attempting to maximize total displacement, the cars drive quickly and close together, resulting in the creation of traffic waves in the system. When attempting to minimize jerk, the cars drive much more conservatively, as one would expect, never coming within the range of another car that would cause them to change acceleration. \\
-\textbf{RESULTS HERE}
+
+\begin{figure}[H]
+  \centering
+  \fbox{\includegraphics[width=0.95\textwidth]{maximise_distance.png}}
+  \caption{System of IDM cars on a circular track optimizing for maximum distance traveled. The more aggressive driving of the cars results in wave formation.}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \fbox{\includegraphics[width=0.95\textwidth]{optimise_comfort.png}}
+  \caption{System of IDM cars on a circular track optimizing for maximum 'comfort' (minimum jerk). As one might expect, they choose to go rather slowly and thereby achieve a very stable velocity.}
+\end{figure}
+
 \paragraph{}We then attempted to optimize behavior for a single driver and were interested to see what implications this would have for the system as a whole. However, the following behaviors in the IDM are such that a single driver can tailgate and maximize target speed basically as much as we will allow without ever disrupting the rest of the system. Even when adding some stochasticity to the lead car, we were unable to see the rest of the system suffer from traffic waves due to the behavior of the second car, because that behavior would simply be quickly dissipated by the third car. In fact, it seems to be true generally of these systems that unless the aggressive driving behavior of a car causes other cars to collide behind it, the greater distance achieved by one car inevitably results in other cars also achieving a greater distance/average velocity. \\
 
 \paragraph{}Next, we attempted to replicate these experiments with the more complicated Human Driver Model. However, due to the highly piecewise nature of the functions we are attempting to optimize over, we were unable to use traditional minimization solvers. Instead, we discretized the parameter space we were interested in exploring and searched for the set of parameters which would minimize our target cost function. \\
@@ -374,7 +411,7 @@ Again, we find that in general maximizing displacement for a single car leads to
 \begin{figure}[H]
   \centering
   \fbox{\includegraphics[width=0.95\textwidth]{optimize_s0.png}}
-  \caption{Variation in Distance Traveled when Changing Safe Following Distance From Initial Value of 3.0}
+  \caption{Variation in Distance Traveled when Changing Safe Following Distance Relative to Initial Value of 3.0}
 \end{figure}
 
 \begin{figure}[H]
@@ -386,7 +423,7 @@ Again, we find that in general maximizing displacement for a single car leads to
 \begin{figure}[H]
   \centering
   \fbox{\includegraphics[width=0.95\textwidth]{optimize_t_change.png}}
-  \caption{Variation in Distance Traveled when Changing Safe Following Time From Initial Value of 1.0}
+  \caption{Variation in Distance Traveled when Changing Safe Following Time Relative to Initial Value of 1.0}
 \end{figure}
 
 \section{TODO}
