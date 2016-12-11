@@ -155,20 +155,18 @@ The first term in Eq (1) is the \textit{free acceleration}\---the acceleration t
 
 \subsubsection{Improved Intelligent Driver Model (IIDM)}
 \paragraph{}
-The Improved Intelligent Driver Model is an IDM model with an improved acceleration function that aims to correct three unrealistic qualities of the IDM:
+The Improved Intelligent Driver Model is an IDM model with an improved acceleration function that aims to correct two unrealistic qualities of the IDM when a vehicle is near the desired speed:
 \begin{enumerate}
   \item 
   If a vehicle exceeds the desired speed, the IDM acceleration function will return a very large negative acceleration.  This is unrealistic since drivers on a highway tend to oscillate around their desired speed.  
   \item
   If a vehicle is close to the desired speed, the desired gap $s^*(v_\alpha,\Delta v_\alpha)$ becomes much greater than $s_0 + v_\alpha T$.  This causes the gaps between vehicles to be unrealistically large and can preclude vehicles from reaching the desired velocities.
-  \item
-  If the actual gap is less than the desired gap distance (e.g. when another vehicle merges into the particular vehicle's lane), then the acceleration function will return an excessively large negative acceleration.  This unrealistic as drivers typically brake lightly to increase the gap.
 \end{enumerate}
 \begin{mymathbox}[ams gather, title=IIDM Governing Functions, colframe=blue!30!black]
   \begin{align}
   \frac{dv_\alpha}{dt}\Bigr|_{v_\alpha\le v_0}&= 
   \begin{cases}
-    a (1-z^2) & z_\alpha \ge 1\\
+    a (1-z_\alpha^2) & z_\alpha \ge 1\\
    a_{\text{free},\alpha}(1 - z_\alpha^{(2a)/a_{\text{free},\alpha}})& \text{otherwise}
   \end{cases}
   \\
@@ -187,59 +185,117 @@ The Improved Intelligent Driver Model is an IDM model with an improved accelerat
 \paragraph{}
 The IIDM governing equations seek to improve the unrealistic qualities of the IDM model. Eq (8) is the free acceleration equation, which limits the deceleration's magnitude when $v_\alpha>v_0$ to be at most b. To improve the acceleration function near the desired speed, we use $z_\alpha$ to indicate whether the desired gap distance is greater than the current gap distance or not.  When $v_\alpha < v_0$, the IIDM's acceleration function (Eq (5) and Eq (6)) ensures that the actual gap is no larger than the minimum safe gap $s_\alpha = s_0+vT$.  To maintain the intelligent and comfortable brake method of the IDM, the improved acceleration function only changes when the actual gap is near the desired gap or when the actual velocity is greater than the desired velocity.
 \subsubsection{Adaptive Cruise Control Model (ACC)}
-
-
-
 \paragraph{}
-$$a_{CAH}(s,v,v_l, \dot{v}_l)= \begin{cases}
-\frac{v^2\tilde{a}_l}{v_l^2 - 2 \tilde(a)_l} & v_l(v-v_l) \le -2s\tilde{a}_l\\
-\tilde{a}_l - \frac{(v-v_l)^2 \Theta (v-v_l)}{2s} & otherwise
-\end{cases}$$
+The ACC is an improvement on the IIDM model that is designed so that a vehicle can handle is discontinuous changes in the gap between itself and the leading vehicle or discontinuous changes in the speed of the leading.  One scenario where discontinuous changes in speed or gap would occur is when the leading vehicle either enters or exits the lane.  Since the IDM based models are only meant for controlling the acceleration of a vehicle within a single lane, this scenario is equivalent to the leading vehicle simply vanishing into or appearing out of thin air.  In the IDM and IIDM models, vehicles overreact if the gap is suddenly decreased because the models are designed to be accident free under all circumstances.  However, a vehicle slamming on the breaks when the gap is decreased is not realistic and can even be dangerous since most human drivers do not anticipate sudden changes in the acceleration of the vehicle in front of it.  It is important note that the ACC model is not guaranteed to be accident-free; the driving style is less defensive by by design.
+\paragraph{}
+To attenuate the semi-autonomous vehicle's reaction to sudden decreases in the gap distance, vehicles in the ACC model act according to a constant-acceleration heuristic, rather than making decisions based off the worst-case scenario.  The constant-acceleration heuristic (CAH) assumes that vehicles will have constant acceleration in the near future, no safe distance or time gap is necessary at any time, and vehicles will react instantaneously.
+\begin{mymathbox}[ams gather, title=ACC Governing Functions, colframe=blue!30!black]
+  \begin{align}
+  a_{\text{ACC},\alpha}&= 
+  \begin{cases}
+  a_{\text{IIDM},\alpha} & a_{\text{IIDM},\alpha} \ge a_{\text{CAH},\alpha}\\
+  (1-c)a_{\text{IIDM},\alpha} + c\left[a_{\text{CAH},\alpha} + b \tanh(\frac{a_{\text{IIDM},\alpha}-a_{\text{CAH},\alpha}}{b}) \right] & \text{otherwise}
+  \end{cases}\\
+  a_{\text{CAH},\alpha}&= 
+  \begin{cases}
+  \frac{v_\alpha^2\tilde{a}_l}{v_l^2 - 2 s_\alpha\tilde{a}_l} & v_l(v_\alpha-v_l) \le -2s_\alpha\tilde{a}_l\\
+  \tilde{a}_l - \frac{(v_\alpha-v_l)^2 \Theta (v_\alpha-v_l)}{2s_\alpha} & \text{otherwise}
+  \end{cases}\\
+  \tilde{a}_l &= \min(\dot{v}_l, a)\\
+   \Theta (x)&= 
+   \begin{cases}
+   1 & x\geq 0\\
+   0 & \text{otherwise}
+   \end{cases}
+   \end{align}
+\end{mymathbox}
+\paragraph{}
+Under the constant-acceleration heuristic, the vehicle's acceleration is given by Eq (9), where $\tilde{a}_l$ is the effective acceleration of the leading vehicle (limited by the maximum acceleration parameter). One important distinction between the ACC and the previous intelligent models is that the ACC uses the leading vehicle's acceleration as an input, in addition to the leading vehicle's speed and gap. However, the ACC model only uses the CAH acceleration as an indicator of whether the IIDM acceleration is overreacting to the situation.  Hence, the ACC model also calculates the acceleration function from the IIDM model.  The acceleration function for the ACC model is given by Eq (9), where $c$ is the "coolness parameter", which is used to tune the ACC models behavior: $c=0$ is equivalent to a pure IIDM model and $c=1$ is a pure ACC model.  If the IIDM acceleration is greater than or equal to the CAH acceleration, then the ACC model uses the IIDM acceleration, since the IIDM model is accident-free and thus safe.  Otherwise, the AAC model uses a less cautious acceleration function.
+\section{Microscopic Perspective of Traffic Interaction: Human Driver Models}
+\paragraph{}
+The Human Driver Model (HDM) is an extension of the IDM model that models human driving behavior by making five important changes to the IDM:
+\begin{enumerate}
+  \item The\textit{ reaction times} are no longer zero.  Humans have delayed reactions.  The HDM requires a reaction time parameter $T_r$, which is the delay in response to stimulus.  Hence, the system of ODEs for the HDM is a system of time-delayed differential equations.
+  \item For a given driver, the exact distance to and speed of the leading vehicle are not known.  The driver estimates these quantities with inherent \textit{estimation error}.  Note that the HDM assumes that the driver knows their own velocity, since the vehicle has a speedometer.
+  \item Drivers do not update their acceleration exactly to the value given by the acceleration function.  This is because a driver controls the car by operating the gas and brake pedals, which are imprecise and induce \textit{driver control errors}.
+  \item Experienced drivers \textit{anticipate} what will happen in the near future and use these anticipations to inform their own behavior.
+  \item Human drivers are able to look ahead multiple vehicles in a single lane of traffic.  For example, a human driver often can see brake lights of a vehicle 3 cars ahead on a highway and will react to those brake lights in the distance. \textit{multiple anticipation} allowing the human drivers update their acceleration using information from multiple cars ahead.
+\end{enumerate}
+\begin{mymathbox}[title=HDM Parameters,colframe=blue!30!black]
+  $T_r$: human reaction time\\
+  $\tilde{\tau}$: persistence time for Wiener process autocorrelation function\\
+  $V_s$: variation coefficient\---standard deviation of the relative difference between $s_\alpha^\text{est}$ and $s_\alpha$\\
+  $\sigma_r$: standard deviation of the relative approach rate\\
+  $\sigma_a$: standard deviation of the acceleration error
+\end{mymathbox}
 
-$$\tilde{a}_l(\dot(v)_l) = min(\dot{v}_l, a)$$
-
-$$a_{ACC}= \begin{cases}
-a_{IIDM} & a_{IIDM} \ge a_{CAH}\\
-(1-c)a_{IIDM} + c\left[a_{CAH} + b tanh(\frac{a_{IIDM}-a_{CAH}}{b}) \right] & otherwise
-\end{cases}$$
-
-$$\dot{v}(t) = a_{mic}\left[s(t-T_r), v(t-T_r), v_l(t-T_r) \right]$$
-
-$$u(t-Tr) = ru_{i-j-1} + (1-r)u_{i-j},  \, \, j = \textrm{int}\left(\frac{T_r}{\Delta t} \right), \, \, r = \frac{T_r}{\Delta t} - j$$
-
-$$\textrm{ln} s^{est} - \textrm{ln} s = V_s w_s(t) $$
-
-$$v^{est} - v_l = -s \sigma_r w_l(t)$$
-
-%This numerical analysis can be contrasted to the analytical solution that was presented in (**another section 2?**).\par
-%A car`s speed is governed by the laws of motion:
-%\begin{equation}
-%v_f = v_i + a\Delta t
-%\end{equation}
-%
-%An individual car can be modeled as such over a 100,000m track and asked to travel at $v_{target} = 60miles.h^{-1}$ (i.e. $26.8m.s^{-1}$). As the driver is not an perfect controller he is unable to hold the speed exactly at $v_{target}$. We can therefore model his fluctuations as random acceleration with the corresponding adjustments to correct the acceleration:
-%\begin{equation}
-%a_{correction_i} = \alpha(v_{instant} - v_{target}) + N(0,\sigma_1)
-%\end{equation}
-%
-%We note that for more than one car in a stream of traffic the car's acceleration is then also dependent on the car ahead of it:
-%\begin{equation}\label{eq:interaction}
-%a_{interaction_i} = \beta (s_{instant} - s_{target})
-%\end{equation}
-%
-%In equation \ref{eq:interaction}, we see that the acceleration of the car is also dependent on the distance between any one car and the car that is directly ahead of it. The final acceleration of the car is therefore:
-%\begin{equation}\label{eq:acceleration}
-%a_{i} = a_{correction_i} + a_{interaction_i}
-%\end{equation}
-%
-%If we assume the cars should travel at $v_{target}$ and that they should maintain an $s_{target} = 5m$ spacing between them, we can then model the velocity of the car as:
-%
-%\begin{equation}\label{eq:velocity}
-%v_{i} = \frac{d(a_i)}{dt}
-%\end{equation}
-
-\section{Microscopic Perspective of Traffic Interaction : Human Driver Models}
-
+%\begin{mymathbox}[ams gather, title=HDM Governing Equations,colframe=blue!30!black]
+%  \begin{align}
+%\dot{v}_\alpha(t) &= a_{\alpha}\left[s_\alpha(t-T_r), v_\alpha(t-T_r), v_l(t-T_r) \right]\\
+%u(t-T_r) &= ru_{i-j-1} + (1-r)u_{i-j},  \, \, j = \textrm{int}\left(\frac{T_r}{\Delta t} \right), \, \, r = \frac{T_r}{\Delta t} - j\\
+%\langle w(t)w(t')\rangle&  =\exp\bigg(-\frac{|t-t'|}{\tilde{\tau}}\bigg)\\
+%w_i&=e^{\frac{-\Delta t}{\tilde{\tau}}}w_{i-1}+\sqrt{\frac{2\Delta t}{\tilde\tau}}\eta_i\\
+%\ln s_\alpha^{\text{est}} - \ln s_\alpha &= V_s w_{s,\alpha}(t)\\
+%v^{est} - v_l &= -s_\alpha \sigma_r w_{l,\alpha}(t)\\
+%\dot v_\alpha(t)&=a_\alpha(s_\alpha^\text{est},v_\alpha,v_l^\text{est})+\sigma_a w_{a,\alpha}(t)\\
+%v_\alpha^{\text{prog}}(t)&=v_\alpha(t-T_r)+T_r\dot v_\alpha(t-T_r)\\
+%v_l^{\text{prog}}(t)&=v_l^\text{est}(t-T_r)\\
+%s_\alpha^{\text{prog}}(t)&=s_\alpha^\text{est}(t-T_r)-T_r\Delta v_\alpha^\text{est}(t-T_r)
+%  \end{align}
+%\end{mymathbox}
+\paragraph{1. Delayed Reaction Times:}
+The HDM incorporates human reaction time by introducing a new reaction time parameter $T_r$.  Vehicles in the model then update their acceleration based delayed information (i.e. the state of the system $T_r$ seconds before) as shown in Eq (13).  Hence, the HDM is based off time-delayed differential equations.  Eq (13) cannot be solved analytically, but $u(t-T_r)$ can be approximated numerically by linear interpolation using the scheme in Eq (14), where $u$ can be any of $s_\alpha,v_\alpha,\Delta v_\alpha,v_l$, $\Delta t$ is the update time of the scheme, and $i=\frac{t}{\Delta t}$ is the update step number.
+\begin{mymathbox}[ams gather, title=Delayed Reaction Time Equations Equations,colframe=blue!30!black]
+  \begin{align}
+  \dot{v}_\alpha(t) &= a_{\alpha}\left[s_\alpha(t-T_r), v_\alpha(t-T_r), v_l(t-T_r) \right]\\
+  u(t-T_r) &= ru_{i-j-1} + (1-r)u_{i-j},  \, \, j = \textrm{int}\left(\frac{T_r}{\Delta t} \right), \, \, r = \frac{T_r}{\Delta t} - j
+  \end{align}
+\end{mymathbox}
+\paragraph{2. Estimation Errors:}
+The HDM addresses a driver's error in estimating the distance to and speed of the vehicle in front of it by adding Gaussian noise to the true value of the estimand.  However, it is likely a particular driver's estimation error will be correlated over time. Hence, for each driver $\alpha$, the HDM two stochastic processes ($w_{s,\alpha}(t),w_{l,\alpha}(t)$) to represent the driver's estimation errors of the distance to and speed of the leading vehicle at each timestep, respectively.  Each of the stochastic processes is independent and comes from the standard Gaussian distribution.  Moreover, each stochastic process uses the autocorrelation function given by Eq (15), which models how a driver's estimation errors are likely correlated with other estimation errors at other nearby times. \textbf{SHOULD I INCLUDE STOCHASTIC DIFF EQ FOR WIENER PROCESS?} Each stochastic process is created approximating a Wiener Process using the numerical scheme given in Eq (16), where $i=\frac{t}{\Delta t}$ is the update step number and $\eta_i \sim N(0,1)$.
+Using these stochastic processes, the estimation errors (or log errors) of distance to and speed of the leading vehicle are given by Eq (17, 18), respectively, where $s_\alpha^\text{est}$ and $v_l^\text{est}$ are the estimates.
+\begin{mymathbox}[ams gather, title=Estimation Error Equations,colframe=blue!30!black]
+  \begin{align}
+  \langle w(t)w(t')\rangle&  =\exp\bigg(-\frac{|t-t'|}{\tilde{\tau}}\bigg)\\
+  w_i&=e^{\frac{-\Delta t}{\tilde{\tau}}}w_{i-1}+\sqrt{\frac{2\Delta t}{\tilde\tau}}\eta_i\\
+  \ln s_\alpha^{\text{est}} - \ln s_\alpha &= V_s w_{s,\alpha}(t)\\
+  v^{est} - v_l &= -s_\alpha \sigma_r w_{l,\alpha}(t)
+  \end{align}
+\end{mymathbox}
+\paragraph{3. Driver Control Errors:}
+The HDM handles driver control errors adding noise to the acceleration function at each time step.  Specifically, another stochastic process $w_{a,\alpha}(t)$ with the same properties as $w_{s,\alpha}(t)$ and  $w_{l,\alpha}(t)$ is created for each driver.  This noise is added to the acceleration function as shown in the Eq (19).
+\begin{mymathbox}[ams gather, title=Driver Control Error Equation Equations,colframe=blue!30!black]
+  \begin{align}
+\dot v_\alpha(t)&=a_\alpha(s_\alpha^\text{est},v_\alpha,v_l^\text{est})+\sigma_a w_{a,\alpha}(t)
+  \end{align}
+\end{mymathbox}
+\paragraph{4. Temporal Anticipation:}
+The HDM models an experienced driver's anticipation by having driver's assume that their acceleration is constant over the reaction time $T_r$.  This assumption allows a driver to predict what their own speed will be $T_r$ seconds in the future.  This prediction is given by Eq (20).  Moreover, in the HDM, a driver assumes that the velocity of leading vehicle is constant over next $T_r$ seconds.  This allows the driver to make predictions of the distance to and speed of the leading vehicle, as shown in Eq (21, 22) respectively, where $\Delta v_\alpha^\text{est}=v_\alpha-v_l^\text{est}$.
+\begin{mymathbox}[ams gather, title=Temporal Anticipation Equations,colframe=blue!30!black]
+  \begin{align}
+  v_\alpha^{\text{prog}}(t)&=v_\alpha(t-T_r)+T_r\dot v_\alpha(t-T_r)\\
+  v_l^{\text{prog}}(t)&=v_l^\text{est}(t-T_r)\\
+  s_\alpha^{\text{prog}}(t)&=s_\alpha^\text{est}(t-T_r)-T_r\Delta v_\alpha^\text{est}(t-T_r)
+  \end{align}
+\end{mymathbox}
+\paragraph{5. Multi-Vehicle Anticipation:}
+The HDM models allows a driver to be aware multiple vehicles ahead.  The acceleration function (shown in Eq(23)) is broken up into two terms: a free acceleration term that representing the acceleration on an open road, and an interaction term that models the effect of the driver's awareness of multiple vehicles in front of it on the driver's acceleration.  The free acceleration and interaction terms directly follow from adapting the IDM acceleration function to include the distances to and speeds of multiple leading cars.  The coefficient of the interaction term, $c_{\text{IDM}}$, is used to keep the interaction term from blowing up in the negative direction as $n_a$ increases.
+\begin{mymathbox}[ams gather, title=Multi-Vehicle Anticipation Equations,colframe=blue!30!black]
+  \begin{align}
+  \dot v_\alpha &= a_{\text{free},\alpha}+c_{\text{IDM}}\sum_{\beta=\alpha-n_a}^{\alpha-1}a_{\text{int}}(s_{\alpha\beta},v_\alpha,v_\beta)\\
+  a^{\text{IDM}}_{\text{free},\alpha}&=a\Bigg[1-\bigg(\frac{v}{v_0}\bigg)^\delta\Bigg]\\
+  a^{\text{IDM}}_{\text{int}}(s_{\alpha\beta},v_\alpha,v_\beta)&=-a\Bigg(\frac{s^*(v_\alpha,v_\alpha-v_\beta)}{s_{\alpha\beta}}\Bigg)^2\\
+  s_{\alpha\beta}&=\sum_{j=0}^{\alpha-\beta-1}s_{\alpha-j}\\
+  c_{\text{IDM}}&=\Bigg(\sum_{j=1}^{n_a}\frac{1}{j^2}\Bigg)^{-1}
+  \end{align}
+\end{mymathbox}
+\paragraph{HDM Model:}
+Assembling the various components of the HDM model, the HDM governing equation is obtained (Eq (28)).
+\begin{mymathbox}[ams gather, title=HDM Governing Equation,colframe=blue!30!black]
+  \begin{align}
+\dot v_\alpha &= a_{\text{free},\alpha}^{\text{IDM}}+c_{\text{IDM}}\sum_{\beta=\alpha-n_a}^{\alpha-1}a_{\text{int}}^{\text{IDM}}(s^{\text{prog}}_{\alpha\beta},v^{\text{prog}}_\alpha,v^{\text{prog}}_\beta)
+  \end{align}
+\end{mymathbox}
 \section{Numerical Simulations of Traffic Systems}
 
 \paragraph{}To generate numerical simulations of Traffic Systems, we first consider the case of 50 cars on a circular track. We explored scenarios of all IDM cars and all HDM cars. Under these conditions, we see the IDM models generate more `phantom` traffic waves than the HDM models, especially for larger numbers of HDM car lookahead. This is because the human drivers tend to appear more conservative in a situation like this, with no external perturbations, as the multi-car lookahead prevents them from getting overly close to the car directly in front of them.
