@@ -8,8 +8,6 @@
 % This package should properly format in-text
 % reference calls and reference-list numbers.
 
-\usepackage{scicite}
-
 % Use times if you have the font installed; otherwise, comment out the
 % following line.
 
@@ -108,11 +106,12 @@
 The modeling of traffic at traffic lights, on highways, in dense traffic streams, with varying situations etc can often present a problem that is too complicated to solve analytically. This is mainly due to the inherent random movements of cars, the number of individually moving cars and the many and varying scenarios that can be analyzed.
 In this project, we present two main models, the `Intelligent Driver Model' and the `Human Driver Model' and numerically simulate a number of test cases allowing us to study the underlying dynamics of this system. We focus on modeling the cars using a differential setting where one car's motion is dependent on the car that is in front of it (and sometimes dependent on multiple cars in front of it). We will then extend the scope of this analysis and introduce a number of varying factors into the model to analyze the motion of cars along a straight road, analyze the cars along a circular track and finally include a blend of the intelligent driving cars (comparable to automated cruise control autonomous cars) and cars with the human controlled vehicles. These autonomous cars have more precise, and faster reacting velocity controllers and the inclusion of vehicles such as these in the model is expected to smooth the flow of traffic and ultimately increase the density of traffic flow.
 
-\section{Macroscopic Perspective of Single Lane Traffic Interactions}
-\paragraph{}There are generally two ways to model traffic. In the macroscopic perspective, traffic is viewed as a fluid or gas with a given maximum density moving according to the laws of conservation of mass. Because we'd like to interweave different models for specific cars, these models would be difficult to blend in a way that is easily interpretable.
+\paragraph{}There are generally two ways to model traffic: from a microscopic and from a macroscopic perspective \cite[Chapter~34]{microscopic_modelling}. In the macroscopic perspective, traffic is viewed as a fluid or gas with a given maximum density moving according to the laws of conservation of mass. Because we'd like to interweave different models for specific cars, these models would be difficult to blend in a way that is easily interpretable.
 
 \section{Microscopic Perspective of Single Lane Traffic Interactions}
-\paragraph{} In the microscopic perspective, individual cars are modeled as particles that move according to a relationship with the particle(s) in front of them.  Time-continuous microscopic models, commonly referred to as car-following models, model the characteristics of individual vehicles such as acceleration, velocity, position using a systems of coupled ordinary differential equations (ODEs).  Car-following models are constained by assumptions that mimic realistic driving behavior such as a vehicle wants to maintain a safe driving gap between itself and vehicle in front of it (commonly called the \textit{leading vehicle}), a vehicle has a certain desired velocity, or there is a maximum comfortable acceleration. In the section, we consider a few variations of the Intelligent Driver Model (IDM), as well as Human Driver Model (HDM).  We chose the IDM over other car-following models such as Gipps Model because the IDM has direct extensions to modeling human driving behavior using the HDM.
+\paragraph{} In the microscopic perspective, individual cars are modeled as particles that move according to a relationship with the particle(s) in front of them.  Time-continuous microscopic models, commonly referred to as car-following models, model the characteristics of individual vehicles such as acceleration, velocity, position using a systems of coupled ordinary differential equations (ODEs).  Car-following models are constained by assumptions that mimic realistic driving behavior such as a vehicle wants to maintain a safe driving gap between itself and vehicle in front of it (commonly called the \textit{leading vehicle}), a vehicle has a certain desired velocity, or there is a maximum comfortable acceleration \cite[chapter~10]{treiber_kesting_2013}. In the section, we consider a few variations of the Intelligent Driver Model (IDM), as well as Human Driver Model (HDM).  
+%We chose the IDM over other car-following models such as Gipps Model because the IDM has direct extensions to modeling human driving behavior using the HDM.
+We chose the IDM over other car-following models such as the Gipps Model or Newell's due to the oversimplification of some acceleration assumptions that the alternative models make\cite[chapter~11]{treiber_kesting_2013}. The result is that the IDM provides the simplest implementation of plausible driving characteristics.
 \subsection{Intelligent Driver Models}
 In this section, we model streams of semi-autonomous vehicles that display the following driving characteristics:
 \begin{itemize}
@@ -152,7 +151,7 @@ The IDM is a simple, accident-free model that can model traffic systems under al
   \end{align}
 \end{mymathbox}
 \paragraph{}
-The first term in Eq (1) is the \textit{free acceleration}\---the acceleration that a vehicle would take if on an open road, without considerations of desired speed or gap.  The second term in Eq (1) is the effect on the acceleration of the vehicle approaching its desired speed.  The third term in Eq(1) is the effect on the acceleration of relative difference between the desired gap distance $s^*(v_\alpha,\Delta v_\alpha)$ and the current gap distance.  The desired gap distance given by Eq (4) the sum of two terms the steady state desired safe distance $s_0+v_\alpha T$ and a dynamical term $\frac{v_\alpha \Delta v_\alpha}{2 \sqrt{ab}}$ representing the intelligent vehicle's braking strategy.
+The first term in Eq (1) is the \textit{free acceleration}\---the acceleration that a vehicle would take if on an open road, without considerations of desired speed or gap.  The second term in Eq (1) is the effect on the acceleration of the vehicle approaching its desired speed.  The third term in Eq(1) is the effect on the acceleration of relative difference between the desired gap distance $s^*(v_\alpha,\Delta v_\alpha)$ and the current gap distance.  The desired gap distance given by Eq (4) the sum of two terms the steady state desired safe distance $s_0+v_\alpha T$ and a dynamical term $\frac{v_\alpha \Delta v_\alpha}{2 \sqrt{ab}}$ representing the intelligent vehicle's braking strategy \cite{intelligent_driver_model}.
 
 \subsubsection{Improved Intelligent Driver Model (IIDM)}
 \paragraph{}
@@ -351,11 +350,10 @@ can we find the parameters that will cause a phantom traffic jam?
 % scibib.bib, and the .bst file Science.bst.  The package scicite.sty
 % was included to format the reference numbers according to *Science*
 % style.
+\newpage
 
-
-\bibliography{scibib}
-
-\bibliographystyle{Science}
+\bibliography{bibliography}
+\bibliographystyle{ieeetr}
 
 
 
