@@ -119,15 +119,28 @@ def x_v_dash(x_v, t, params):
 	if params['IDM_model_num'] == 2:
 		# AAC IDM
 		dvdt = a_ACC(s, v, vl, dvdt, params)
-	# if t <= 200:
-	# 	v[0] = 15
-	# if t > 200:
+
+	# uncomment to create perturbation of car 1 speeding up and then slowing down
+	# if t > 40:
 	# 	dvdt[0] = 1
-	# if t > 240:
+	# if t > 60:
 	# 	dvdt[0] = -1
-	# if t > 280:
+	# if t > 80:
 	# 	dvdt[0] = 0
+
+	# uncomment to create perturbation of car 1 slowing to a stop
+	# dvdt[dvdt<-4] = -4
+	# v[v<0]=1e-10
+	# if np.sum(np.isnan(dvdt))>0:
+	# 	pdb.set_trace()
+	# if t>40:
+	# 	if v[0]> .02:
+	# 		dvdt[0] = -.2
+	# 	else:
+	# 		# print t
+	# 		dvdt[0] = 1e-10
 	x_v = np.concatenate((v,dvdt))
+
 	# params['y_s'].append(x_v)
 	return x_v
 
@@ -138,7 +151,7 @@ def runge_kutta_5(x_v_vec_k, x_v_dash, t_k, h, params):
 	k4 = x_v_dash(x_v_vec_k + 1932./2197*h*k1 -7200./2197*h*k2 + 7296./2197*h*k3,t_k+12./13*h, params)
 	k5 = x_v_dash(x_v_vec_k + 439./216*h*k1 -8.*h*k2 + 3680./513*h*k3 - 845./4104*h*k4,t_k*h, params)
 	k6 = x_v_dash(x_v_vec_k - 8./27*h*k1 + 2.*h*k2 -3544./2565*h*k3 + 1859./4104*h*k4 - 11./40*h*k5,t_k*1./2*h, params)
-	x_v_vec_k_next = x_v_vec_k + h * (15./135*k1 + 6656./12825*k3 + 28561./56430*k4 - 9./50*k5 + 2./55*k6)
+	x_v_vec_k_next = x_v_vec_k + h * (16./135*k1 + 6656./12825*k3 + 28561./56430*k4 - 9./50*k5 + 2./55*k6)
 	params['x_v_dash'].append(k1)
 	return x_v_vec_k_next
 
@@ -198,7 +211,7 @@ def run_simulation(params):
 if __name__ == '__main__':
 	## Parameters ##
 	params 									= dict()
-	params['v0'] 						= 30.0 # desired velocity (in m/s) of vehicles in free traffic
+	params['v0'] 						= 20.0 # desired velocity (in m/s) of vehicles in free traffic
 	params['init_v'] 				= 5.0 # initial velocity
 	params['T'] 						= 1.0 # Safe following time
 	params['a'] 						= 2.0 # Maximum acceleration (in m/s^2)
@@ -230,6 +243,7 @@ if __name__ == '__main__':
 	# 1 == IIDM
 	# 2 == ACC
 	for model in xrange(3):
+	# for model in [0]:
 		params['IDM_model_num'] = model
 
 		# Assign initial velocities (30m/s)
@@ -248,15 +262,17 @@ if __name__ == '__main__':
 		y_s=[]
 		y_s.append(x_v_vec)
 		for i in range(1,len(ts)):
-			y_s.append(runge_kutta_3(y_s[-1], x_v_dash, ts[i], ts[i]-ts[i-1], params))
+			y_s.append(runge_kutta_4(y_s[-1], x_v_dash, ts[i], ts[i]-ts[i-1], params))
 
 		y_s = np.array(y_s)
 		# Plot position and velocity of each car
 		fig, axes = plt.subplots(1,2, figsize=(16,8))
 		# Plot positions over time
+		# for car in [0,1,2,5,9,19]:
 		for car in xrange(n_cars):
 			axes[0].plot(ts, y_s[:,car])
 		# Plot velocity over time
+		# for car in [0,1,2,5,9,19]:
 		for car in xrange(n_cars):
 			axes[1].plot(ts, y_s[:,car+n_cars])
 		axes[0].set_xlabel('Time')

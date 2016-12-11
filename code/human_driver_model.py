@@ -150,9 +150,22 @@ def x_v_dash2(x_v, t,params,past):
 				v_beta_prog = np.array([v_l_prog[beta]])
 				int_term += a_IDM_int(v_alpha_prog,s_alpha_beta_prog,v_alpha_prog-v_beta_prog,params)
 			dvdt[alpha] = free_term_alpha + c_idm*int_term
+			# dvdt[dvdt<-4] = -4
 	else:
 		# Compute acceleration (with estimation error)
 		dvdt = a_IDM(v,s_est,delta_v_est,params) + sigma_a*w_a[:, index]
+	# uncomment to create perturbation of car 1 slowing to a stop
+	# 	dvdt[dvdt<-4] = -4
+	# v[v<0]=1e-10
+	# if np.sum(np.isnan(dvdt))>0:
+	# 	pdb.set_trace()
+	# if t>40:
+	# 	if v[0]> .02:
+	# 		dvdt[0] = -.2
+	# 	else:
+	# 		# print t
+	# 		dvdt[0] = 1e-10
+
 	x_v = np.concatenate((v,dvdt))
 	past['past_dvdt'].append(dvdt)
 	return x_v
@@ -167,9 +180,10 @@ def runge_kutta_4(x_v_vec_k, x_v_dash, t_k, h,params,past):
 
 if __name__ == '__main__':
 	## Parameters ##
+	np.random.seed(0)
 	params = dict()
 	params['v0'] = 20.0 # desired velocity (in m/s) of vehicles in free traffic
-	params['init_v'] = 5.0 # initial velocity
+	params['init_v'] = 20.0 # initial velocity
 	params['T'] = 1.5 # Safe following time
 	# Maximum acceleration (in m/s^2)
 	# Note: a is sensitive for the HDM model with anticipation
@@ -183,7 +197,7 @@ if __name__ == '__main__':
 	params['delta'] = 4.0 # Acceleration exponent
 	params['s0'] = 2.0 # minimum gap (in m)
 	params['end_of_track'] = 600 # in m
-	params['t_steps'] = 5000 # number of timesteps
+	params['t_steps'] = 2000 # number of timesteps
 	params['t_start'] = 0.0
 	params['n_cars'] = 50 # number of vehicles
 	params['total_time'] = 500 # total time (in s)
@@ -213,7 +227,7 @@ if __name__ == '__main__':
 	tau_a_tilde = params['tau_a_tilde']
 	t_start = params['t_start']
 	t_step = params['t_step']
-	params['n_a'] = 5 # number of cars ahead that the driver is aware of
+	params['n_a'] = 3 # number of cars ahead that the driver is aware of
 	params['w_s'] = wiener_process(tau_tilde, params)
 	params['w_l'] = wiener_process(tau_tilde, params)
 	params['w_a'] = wiener_process(tau_a_tilde, params)
@@ -247,9 +261,11 @@ if __name__ == '__main__':
 	fig, axes = plt.subplots(1,2, figsize=(16,8))
 	# Plot positions over time
 	for car in xrange(n_cars):
+	# for car in [0,1,2,5,9,19]:
 		axes[0].plot(ts, y_s[:,car])
 	# Plot velocity over time
 	for car in xrange(n_cars):
+	# for car in [0,1,2,5,9,19]:
 		axes[1].plot(ts, y_s[:,car+n_cars])
 	axes[0].set_xlabel('Time')
 	axes[0].set_ylabel('Position')
@@ -270,18 +286,18 @@ if __name__ == '__main__':
 	line, = ax.plot(fx(t), fy(t))
 	cars = ax.scatter(fx(x_vec), fy(x_vec), c='g')
 
-	def animate(i):
-		x_vec = y_s[i,:n_cars]
-		x_vec = np.remainder(x_vec, end_of_track)
-		new_pos = np.concatenate(([fx(x_vec)], [fy(x_vec)]), axis=0)
-		cars.set_offsets(new_pos.T)
-		return cars,
-
-	def init():
-		return cars,
-
-	ani = animation.FuncAnimation(fig, animate, range(t_steps), init_func=init, interval=25, blit=False)
-
-	ax.set_ylabel('$x$')
-	ax.set_ylabel('$y$')
+	# def animate(i):
+	# 	x_vec = y_s[i,:n_cars]
+	# 	x_vec = np.remainder(x_vec, end_of_track)
+	# 	new_pos = np.concatenate(([fx(x_vec)], [fy(x_vec)]), axis=0)
+	# 	cars.set_offsets(new_pos.T)
+	# 	return cars,
+	#
+	# def init():
+	# 	return cars,
+	#
+	# ani = animation.FuncAnimation(fig, animate, range(t_steps), init_func=init, interval=25, blit=False)
+	#
+	# ax.set_ylabel('$x$')
+	# ax.set_ylabel('$y$')
 	plt.show()
